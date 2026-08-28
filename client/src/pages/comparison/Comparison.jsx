@@ -70,6 +70,33 @@ function Comparison() {
         const aParam = searchParams.get("a");
         const bParam = searchParams.get("b");
 
+        const mapCreativeData = (c) => ({
+        id: c.id,
+        brandName: c.brand_name || c.brandName || "",
+        productName: c.product_name || c.productName || "",
+        description: c.description || "",
+        headline: c.headline || "",
+        subheadline: c.subheadline || "",
+        caption: c.caption || c.ad_copy || "",
+        cta: c.cta || "",
+        platform: c.platform || "Instagram",
+        targetAudience: c.target_audience || c.targetAudience || "General",
+        brandTone: c.brand_tone || c.brandTone || "Modern",
+        creativeScore: Number(c.creative_score ?? c.creativeScore ?? 0),
+        estimatedCTR: Number(c.estimated_ctr ?? c.estimatedCTR ?? 0)
+    });
+
+    const applyCreativeToVariant = (c, variant) => {
+        const mapped = mapCreativeData(c);
+        if (variant === "A") {
+            setCreativeA(mapped);
+            setSelectedAId(c.id);
+        } else {
+            setCreativeB(mapped);
+            setSelectedBId(c.id);
+        }
+    };
+
         const loadFromParams = async () => {
             if (aParam) {
                 try {
@@ -99,32 +126,7 @@ function Comparison() {
         }
     }, [searchParams]);
 
-    const mapCreativeData = (c) => ({
-        id: c.id,
-        brandName: c.brand_name || c.brandName || "",
-        productName: c.product_name || c.productName || "",
-        description: c.description || "",
-        headline: c.headline || "",
-        subheadline: c.subheadline || "",
-        caption: c.caption || c.ad_copy || "",
-        cta: c.cta || "",
-        platform: c.platform || "Instagram",
-        targetAudience: c.target_audience || c.targetAudience || "General",
-        brandTone: c.brand_tone || c.brandTone || "Modern",
-        creativeScore: Number(c.creative_score ?? c.creativeScore ?? 0),
-        estimatedCTR: Number(c.estimated_ctr ?? c.estimatedCTR ?? 0)
-    });
 
-    const applyCreativeToVariant = (c, variant) => {
-        const mapped = mapCreativeData(c);
-        if (variant === "A") {
-            setCreativeA(mapped);
-            setSelectedAId(c.id);
-        } else {
-            setCreativeB(mapped);
-            setSelectedBId(c.id);
-        }
-    };
 
     const handleSelectCreative = (c) => {
         if (selectedAId === c.id) {

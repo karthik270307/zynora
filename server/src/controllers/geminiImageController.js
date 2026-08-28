@@ -1,6 +1,6 @@
 const {
     generateMarketingImage
-} = require("../services/imageService");
+} = require("../services/geminiImageService");
 
 exports.generateImage = async (req, res) => {
     try {

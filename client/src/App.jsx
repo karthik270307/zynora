@@ -7,7 +7,6 @@ import {
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
-import LandingPage from "./pages/LandingPage/LandingPage";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import CreativeStudio from "./pages/CreativeStudio/CreativeStudio";
 import ImageGenerator from "./pages/ImageGenerator/ImageGenerator";
@@ -15,7 +14,7 @@ import VideoGenerator from "./pages/VideoGenerator/VideoGenerator";
 import CreativeAnalysis from "./pages/CreativeAnalysis/CreativeAnalysis";
 import Prediction from "./pages/Prediction/Prediction";
 import Recommendations from "./pages/Recommendations/Recommendations";
-import Comparison from "./pages/comparison/comparison";
+import Comparison from "./pages/comparison/Comparison";
 import Login from "./pages/Login/Login";
 import Register from "./pages/Register/Register";
 import PosterGenerator from "./pages/PosterGenerator/PosterGenerator";
@@ -30,8 +29,8 @@ import ProjectDetail from "./pages/Projects/ProjectDetail";
 function App() {
     return (
         <Routes>
-            {/* Public Landing Page */}
-            <Route path="/" element={<LandingPage />} />
+            {/* Redirect to Login */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
 
             {/* Public Dedicated Authentication Pages */}
             <Route path="/login" element={<Login />} />
@@ -60,7 +59,7 @@ function App() {
                 </Route>
             </Route>
 
-            {/* Fallback to Public Landing Page */}
+            {/* Fallback to Root */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );
