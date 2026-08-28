@@ -44,10 +44,10 @@ app.use(
 );
 
 
-app.get("/api/health", (req, res) => {
+app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
-    message: "Zynora backend is running successfully",
+    message: 'Backend is running',
     timestamp: new Date().toISOString()
   });
 });
