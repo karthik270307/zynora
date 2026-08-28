@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import zynoraLogo from "../../assets/zynora-logo.png";
-import { navigationSections } from "../Sidebar/Sidebar";
+import { navigationSections } from "../Sidebar/sidebar";
 
 function TopNavbar() {
     const { logout, user } = useAuth();
