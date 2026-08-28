@@ -42,6 +42,15 @@ app.use(
         )
     )
 );
+
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Zynora backend is running successfully",
+    timestamp: new Date().toISOString()
+  });
+});
 app.use(
     "/generated-scenes",
     express.static(
