@@ -14,7 +14,7 @@ function TeamManagement({ brandId, userRole }) {
         try {
             setLoading(true);
             const token = localStorage.getItem("zynora_token");
-            const res = await axios.get(`http://localhost:5000/api/members/${brandId}`, {
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/members/${brandId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.data.success) {
@@ -42,7 +42,7 @@ function TeamManagement({ brandId, userRole }) {
             setSubmitting(true);
             const token = localStorage.getItem("zynora_token");
             const res = await axios.post(
-                `http://localhost:5000/api/members/${brandId}`,
+                `${import.meta.env.VITE_API_URL}/api/members/${brandId}`,
                 { email, role },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -65,7 +65,7 @@ function TeamManagement({ brandId, userRole }) {
         try {
             const token = localStorage.getItem("zynora_token");
             const res = await axios.put(
-                `http://localhost:5000/api/members/${brandId}/${memberId}/role`,
+                `${import.meta.env.VITE_API_URL}/api/members/${brandId}/${memberId}/role`,
                 { role: newRole },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -87,7 +87,7 @@ function TeamManagement({ brandId, userRole }) {
 
         try {
             const token = localStorage.getItem("zynora_token");
-            const res = await axios.delete(`http://localhost:5000/api/members/${brandId}/${memberId}`, {
+            const res = await axios.delete(`${import.meta.env.VITE_API_URL}/api/members/${brandId}/${memberId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 

@@ -31,7 +31,7 @@ function Projects() {
         try {
             setLoading(true);
             const token = localStorage.getItem("zynora_token");
-            const response = await axios.get("http://localhost:5000/api/projects", {
+            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/projects`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.data.success) {
@@ -91,10 +91,10 @@ function Projects() {
             const headers = { Authorization: `Bearer ${token}` };
             
             if (isEditing) {
-                await axios.put(`http://localhost:5000/api/projects/${editingId}`, formData, { headers });
+                await axios.put(`${import.meta.env.VITE_API_URL}/api/projects/${editingId}`, formData, { headers });
                 toast.success('Project updated successfully');
             } else {
-                await axios.post('http://localhost:5000/api/projects', formData, { headers });
+                await axios.post(`${import.meta.env.VITE_API_URL}/api/projects`, formData, { headers });
                 toast.success('Project created successfully');
             }
             
@@ -114,7 +114,7 @@ function Projects() {
         }
         try {
             const token = localStorage.getItem('zynora_token');
-            await axios.delete(`http://localhost:5000/api/projects/${id}`, {
+            await axios.delete(`${import.meta.env.VITE_API_URL}/api/projects/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success('Project deleted successfully');

@@ -39,7 +39,7 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
                 setLoadingBrands(true);
                 const token = localStorage.getItem("zynora_token");
                 if (!token) return;
-                const response = await axios.get("http://localhost:5000/api/brands", {
+                const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/brands`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.data.success) {
@@ -65,7 +65,7 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
                 setLoadingProjects(true);
                 const token = localStorage.getItem("zynora_token");
                 if (!token) return;
-                const response = await axios.get("http://localhost:5000/api/projects", {
+                const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/projects`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.data.success) {

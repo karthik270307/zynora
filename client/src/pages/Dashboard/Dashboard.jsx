@@ -68,8 +68,8 @@ function Dashboard() {
             
             const [creativeRes, projRes, brandRes] = await Promise.all([
                 getDashboardData(),
-                axios.get("http://localhost:5000/api/projects", { headers }),
-                axios.get("http://localhost:5000/api/brands", { headers })
+                axios.get(`${import.meta.env.VITE_API_URL}/api/projects`, { headers }),
+                axios.get(`${import.meta.env.VITE_API_URL}/api/brands`, { headers })
             ]);
             
             if (creativeRes.success) {

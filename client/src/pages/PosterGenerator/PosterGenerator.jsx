@@ -70,7 +70,7 @@ function PosterGenerator() {
             setPrediction(null);
 
             const response = await axios.post(
-                "http://localhost:5000/api/ai/poster/generate",
+                `${import.meta.env.VITE_API_URL}/api/ai/poster/generate`,
                 form
             );
 

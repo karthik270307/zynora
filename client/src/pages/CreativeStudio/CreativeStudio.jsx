@@ -89,7 +89,7 @@ function CreativeStudio() {
                 projectId: selectedProjectId || null
             };
 
-            const response = await axios.post("http://localhost:5000/api/ai/creative/generate", payload);
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/ai/creative/generate`, payload);
             if (response.data.success) {
                 setResult(response.data.data);
                 toast.success("Marketing copy generated successfully!", { id: "generate" });

@@ -40,9 +40,9 @@ function ProjectDetail() {
             const headers = { Authorization: `Bearer ${token}` };
             
             const [projRes, campRes, creativeRes] = await Promise.all([
-                axios.get(`http://localhost:5000/api/projects/${id}`, { headers }),
-                axios.get(`http://localhost:5000/api/projects/${id}/campaigns`, { headers }),
-                axios.get(`http://localhost:5000/api/creatives`, { headers })
+                axios.get(`${import.meta.env.VITE_API_URL}/api/projects/${id}`, { headers }),
+                axios.get(`${import.meta.env.VITE_API_URL}/api/projects/${id}/campaigns`, { headers }),
+                axios.get(`${import.meta.env.VITE_API_URL}/api/creatives`, { headers })
             ]);
             
             if (projRes.data.success) {
@@ -115,10 +115,10 @@ function ProjectDetail() {
             };
             
             if (isEditing) {
-                await axios.put(`http://localhost:5000/api/campaigns/${editingId}`, payload, { headers });
+                await axios.put(`${import.meta.env.VITE_API_URL}/api/campaigns/${editingId}`, payload, { headers });
                 toast.success('Campaign updated successfully');
             } else {
-                await axios.post(`http://localhost:5000/api/projects/${id}/campaigns`, payload, { headers });
+                await axios.post(`${import.meta.env.VITE_API_URL}/api/projects/${id}/campaigns`, payload, { headers });
                 toast.success('Campaign created successfully');
             }
             
@@ -135,7 +135,7 @@ function ProjectDetail() {
         if (!window.confirm("Are you sure you want to delete this campaign? Associated creatives may lose context.")) return;
         try {
             const token = localStorage.getItem('zynora_token');
-            await axios.delete(`http://localhost:5000/api/campaigns/${campaignId}`, {
+            await axios.delete(`${import.meta.env.VITE_API_URL}/api/campaigns/${campaignId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success('Campaign deleted successfully');

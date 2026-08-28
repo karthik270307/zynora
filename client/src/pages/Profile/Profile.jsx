@@ -22,7 +22,7 @@ function Profile() {
         const fetchProfile = async () => {
             try {
                 const token = localStorage.getItem("zynora_token");
-                const response = await axios.get("http://localhost:5000/api/auth/profile", {
+                const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/profile`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 if (response.data.success) {
@@ -44,7 +44,7 @@ function Profile() {
         try {
             setLoading(true);
             const token = localStorage.getItem("zynora_token");
-            const response = await axios.put("http://localhost:5000/api/auth/profile", 
+            const response = await axios.put(`${import.meta.env.VITE_API_URL}/api/auth/profile`, 
                 { name: profile.name },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -71,7 +71,7 @@ function Profile() {
         try {
             setLoading(true);
             const token = localStorage.getItem("zynora_token");
-            const response = await axios.post("http://localhost:5000/api/auth/change-password", 
+            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/change-password`, 
                 passwordForm,
                 { headers: { Authorization: `Bearer ${token}` } }
             );

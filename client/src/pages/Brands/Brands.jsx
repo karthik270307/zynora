@@ -65,10 +65,10 @@ function Brands() {
             const headers = { Authorization: `Bearer ${token}` };
             
             if (isEditing) {
-                await axios.put(`http://localhost:5000/api/brands/${editingId}`, formData, { headers });
+                await axios.put(`${import.meta.env.VITE_API_URL}/api/brands/${editingId}`, formData, { headers });
                 toast.success('Brand updated successfully');
             } else {
-                await axios.post('http://localhost:5000/api/brands', formData, { headers });
+                await axios.post(`${import.meta.env.VITE_API_URL}/api/brands`, formData, { headers });
                 toast.success('Brand created successfully');
             }
             
@@ -87,7 +87,7 @@ function Brands() {
         }
         try {
             const token = localStorage.getItem('zynora_token');
-            await axios.delete(`http://localhost:5000/api/brands/${id}`, {
+            await axios.delete(`${import.meta.env.VITE_API_URL}/api/brands/${id}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             toast.success('Brand deleted successfully');
