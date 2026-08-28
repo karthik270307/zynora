@@ -96,6 +96,14 @@ app.use("/api/brands", brandRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/campaigns", campaignRoutes);
 app.use("/api/members", memberRoutes);
+ 
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Backend is running',
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.listen(5000, () => {console.log("Server Running...");});
 app.get("/test", (req,res)=>{
