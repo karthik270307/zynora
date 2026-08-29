@@ -10,18 +10,23 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
         const initializeGoogle = () => {
             if (window.google?.accounts?.id) {
                 try {
-                    window.google.accounts.id.initialize({
-                        client_id: clientId,
-                        callback: (response) => {
-                            if (response.credential) {
-                                onAuthSuccess(response.credential);
-                            }
-                        },
-                    });
+                    // Prevent multiple initializations
+                    if (!window.__googleInitialized) {
+                        window.google.accounts.id.initialize({
+                            client_id: clientId,
+                            callback: (response) => {
+                                if (response.credential) {
+                                    onAuthSuccess(response.credential);
+                                }
+                            },
+                            auto_select: false,
+                            cancel_on_tap_outside: false
+                        });
+                        window.__googleInitialized = true;
+                    }
 
                     const parent = document.getElementById("google-btn-hidden-container");
-                    if (parent) {
-                        parent.innerHTML = "";
+                    if (parent && !parent.hasChildNodes()) {
                         window.google.accounts.id.renderButton(parent, {
                             theme: "outline",
                             size: "large",
@@ -39,12 +44,18 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
         if (window.google?.accounts?.id) {
             initializeGoogle();
         } else {
-            const script = document.createElement("script");
-            script.src = "https://accounts.google.com/gsi/client";
-            script.async = true;
-            script.defer = true;
-            script.onload = initializeGoogle;
-            document.body.appendChild(script);
+            // Check if script already exists to avoid loading it twice
+            if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
+                const script = document.createElement("script");
+                script.src = "https://accounts.google.com/gsi/client";
+                script.async = true;
+                script.defer = true;
+                script.onload = initializeGoogle;
+                document.body.appendChild(script);
+            } else {
+                // If script exists but not loaded yet, just wait for it (poll or let another component handle it)
+                setTimeout(initializeGoogle, 500);
+            }
         }
     }, [clientId, onAuthSuccess]);
 
