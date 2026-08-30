@@ -14,7 +14,6 @@ import {
 import toast from "react-hot-toast";
 
 import PosterCanvas from "../../components/Poster/PosterCanvas";
-import { removeBackground } from "@imgly/background-removal";
 import { analyzeCreative } from "../../services/analysisService";
 import { predictPerformance } from "../../services/predictionService";
 
@@ -34,12 +33,13 @@ function PosterGenerator() {
         brandTone: "Modern",
         language: "English"
     });
-    // Sync active brand from context
+
     useEffect(() => {
         if (activeBrand) {
             setSelectedBrandId(activeBrand.id);
         }
     }, [activeBrand]);
+
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [downloading, setDownloading] = useState(false);
@@ -92,6 +92,7 @@ function PosterGenerator() {
             setRemovingBackground(true);
             toast.loading("Removing product background with AI...", { id: "bg-rem" });
 
+            const { removeBackground } = await import("@imgly/background-removal");
             const transparentBlob = await removeBackground(file);
             const transparentUrl = URL.createObjectURL(transparentBlob);
 
