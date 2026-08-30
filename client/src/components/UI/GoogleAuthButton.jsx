@@ -20,7 +20,8 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
                                 }
                             },
                             auto_select: false,
-                            cancel_on_tap_outside: false
+                            cancel_on_tap_outside: false,
+                            use_fedcm_for_prompt: true
                         });
                         window.__googleInitialized = true;
                     }
@@ -44,7 +45,6 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
         if (window.google?.accounts?.id) {
             initializeGoogle();
         } else {
-            // Check if script already exists to avoid loading it twice
             if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
                 const script = document.createElement("script");
                 script.src = "https://accounts.google.com/gsi/client";
@@ -53,7 +53,6 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
                 script.onload = initializeGoogle;
                 document.body.appendChild(script);
             } else {
-                // If script exists but not loaded yet, just wait for it (poll or let another component handle it)
                 setTimeout(initializeGoogle, 500);
             }
         }
@@ -65,19 +64,12 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
             return;
         }
 
-        // Try triggering Google OneTap or prompt
-        if (window.google?.accounts?.id) {
-            window.google.accounts.id.prompt((notification) => {
-                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                    // Fallback to clicking rendered hidden button if available
-                    const hiddenBtn = document.querySelector("#google-btn-hidden-container div[role=button]");
-                    if (hiddenBtn) {
-                        hiddenBtn.click();
-                    } else {
-                        toast.error("Please disable popup blockers or allow third-party cookies.");
-                    }
-                }
-            });
+        // Click the official rendered Google button in the hidden container
+        const hiddenBtn = document.querySelector("#google-btn-hidden-container div[role=button]");
+        if (hiddenBtn) {
+            hiddenBtn.click();
+        } else if (window.google?.accounts?.id) {
+            window.google.accounts.id.prompt();
         } else {
             toast.error("Google Sign-In is initializing. Please try again in a moment.");
         }
