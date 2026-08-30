@@ -17,7 +17,8 @@ export const BrandProvider = ({ children }) => {
             const token = localStorage.getItem("zynora_token");
             if (!token) return;
 
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/brands`, {
+            const baseURL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+            const response = await axios.get(`${baseURL}/api/brands`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
