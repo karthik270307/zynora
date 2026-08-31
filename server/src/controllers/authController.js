@@ -184,30 +184,11 @@ exports.googleLogin = async (req, res) => {
             });
         }
 
-        let user;
-        try {
-            user = await userModel.findUserByEmail(email);
-        } catch (dbErr) {
-            console.error("Database query error in findUserByEmail:", dbErr);
-            return res.status(500).json({
-                success: false,
-                message: "Database connection or query error during user lookup",
-                error: dbErr.message
-            });
-        }
+        let user = await userModel.findUserByEmail(email);
 
         if (!user) {
-            try {
-                const randomPassword = await bcrypt.hash(googleId + Math.random().toString(), 10);
-                user = await userModel.createUser(name, email, randomPassword);
-            } catch (createErr) {
-                console.error("Database error during user creation:", createErr);
-                return res.status(500).json({
-                    success: false,
-                    message: "Database error during account creation",
-                    error: createErr.message
-                });
-            }
+            const randomPassword = await bcrypt.hash(googleId + Math.random().toString(), 10);
+            user = await userModel.createUser(name, email, randomPassword);
         }
 
         const secret = process.env.JWT_SECRET || "zynora_default_jwt_secret_key_2026";
