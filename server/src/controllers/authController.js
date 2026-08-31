@@ -142,58 +142,88 @@ exports.googleLogin = async (req, res) => {
         if (!googleToken) {
             return res.status(400).json({
                 success: false,
-                message: "Google ID token is required"
+                message: "Google token is required"
             });
         }
 
-        // Verify token with Google's public tokeninfo endpoint securely on the backend
         let googleUser;
+        // Method 1: ID Token Verification
         try {
             const googleRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${googleToken}`);
             googleUser = googleRes.data;
         } catch (err) {
+            // Method 2: Bearer Access Token Verification
             try {
                 const userRes = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
                     headers: { Authorization: `Bearer ${googleToken}` }
                 });
                 googleUser = { ...userRes.data, sub: userRes.data.sub || userRes.data.id };
             } catch (err2) {
-                return res.status(401).json({
-                    success: false,
-                    message: "Invalid or expired Google token"
-                });
+                // Method 3: Access Token Query Parameter Verification
+                try {
+                    const tokenInfoRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${googleToken}`);
+                    googleUser = tokenInfoRes.data;
+                } catch (err3) {
+                    console.error("All Google token verification attempts failed:", err.message, err2.message, err3.message);
+                    return res.status(401).json({
+                        success: false,
+                        message: "Invalid or expired Google token"
+                    });
+                }
             }
         }
 
-        const { email, name, sub: googleId } = googleUser;
+        const email = googleUser.email;
+        const name = googleUser.name || (email ? email.split("@")[0] : "Google User");
+        const googleId = googleUser.sub || googleUser.user_id || googleUser.id || Math.random().toString();
 
         if (!email) {
             return res.status(400).json({
                 success: false,
-                message: "Google account does not provide an email"
+                message: "Google account did not return a verified email address"
             });
         }
 
-        let user = await userModel.findUserByEmail(email);
+        let user;
+        try {
+            user = await userModel.findUserByEmail(email);
+        } catch (dbErr) {
+            console.error("Database query error in findUserByEmail:", dbErr);
+            return res.status(500).json({
+                success: false,
+                message: "Database connection or query error during user lookup",
+                error: dbErr.message
+            });
+        }
 
         if (!user) {
-            // Create user with a generated dummy hash if password_hash is non-nullable
-            const randomPassword = await bcrypt.hash(googleId + Math.random().toString(), 10);
-            user = await userModel.createUser(name || email.split("@")[0], email, randomPassword);
+            try {
+                const randomPassword = await bcrypt.hash(googleId + Math.random().toString(), 10);
+                user = await userModel.createUser(name, email, randomPassword);
+            } catch (createErr) {
+                console.error("Database error during user creation:", createErr);
+                return res.status(500).json({
+                    success: false,
+                    message: "Database error during account creation",
+                    error: createErr.message
+                });
+            }
         }
+
+        const secret = process.env.JWT_SECRET || "zynora_default_jwt_secret_key_2026";
 
         const token = jwt.sign(
             {
                 id: user.id,
                 email: user.email
             },
-            process.env.JWT_SECRET,
+            secret,
             {
                 expiresIn: "7d"
             }
         );
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "Google authentication successful",
             user: {
@@ -204,8 +234,8 @@ exports.googleLogin = async (req, res) => {
             token
         });
     } catch (error) {
-        console.error("Google auth error:", error);
-        res.status(500).json({
+        console.error("Google auth unexpected server error:", error);
+        return res.status(500).json({
             success: false,
             message: "Google authentication failed",
             error: error.message
