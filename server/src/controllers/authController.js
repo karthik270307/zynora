@@ -152,10 +152,17 @@ exports.googleLogin = async (req, res) => {
             const googleRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${googleToken}`);
             googleUser = googleRes.data;
         } catch (err) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid or expired Google token"
-            });
+            try {
+                const userRes = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+                    headers: { Authorization: `Bearer ${googleToken}` }
+                });
+                googleUser = { ...userRes.data, sub: userRes.data.sub || userRes.data.id };
+            } catch (err2) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Invalid or expired Google token"
+                });
+            }
         }
 
         const { email, name, sub: googleId } = googleUser;

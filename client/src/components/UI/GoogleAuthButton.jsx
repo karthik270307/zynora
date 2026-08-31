@@ -32,6 +32,35 @@ function loadGsiScript() {
     return gsiScriptPromise;
 }
 
+// Global state tracking to guarantee initialize() is called EXACTLY ONCE per clientId across the application session
+let initializedClientId = null;
+let currentAuthHandler = null;
+
+function ensureGsiInitialized(clientId) {
+    if (!window.google?.accounts?.id) return;
+
+    if (initializedClientId === clientId) {
+        return; // Already initialized once for this client_id globally. Do NOT call initialize() again!
+    }
+
+    try {
+        window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (response) => {
+                if (response?.credential && currentAuthHandler) {
+                    currentAuthHandler(response.credential);
+                }
+            },
+            auto_select: false,
+            cancel_on_tap_outside: true,
+            use_fedcm_for_prompt: false
+        });
+        initializedClientId = clientId;
+    } catch (err) {
+        console.error("Google Identity initialization error:", err);
+    }
+}
+
 export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with Google", disabled = false }) {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const containerRef = useRef(null);
@@ -47,25 +76,23 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
 
         let isMounted = true;
 
+        // Route credential callbacks to the currently active component instance
+        currentAuthHandler = (token) => {
+            if (authSuccessRef.current) {
+                authSuccessRef.current(token);
+            }
+        };
+
         loadGsiScript()
             .then(() => {
                 if (!isMounted || !containerRef.current || !window.google?.accounts?.id) return;
 
-                try {
-                    window.google.accounts.id.initialize({
-                        client_id: clientId,
-                        callback: (response) => {
-                            if (response?.credential && authSuccessRef.current) {
-                                authSuccessRef.current(response.credential);
-                            }
-                        },
-                        auto_select: false,
-                        cancel_on_tap_outside: true,
-                        use_fedcm_for_prompt: false
-                    });
+                // Call initialize ONLY ONCE per client ID globally
+                ensureGsiInitialized(clientId);
 
-                    // Clear previous content if any and render Google button
-                    containerRef.current.innerHTML = "";
+                // Render button into target container
+                containerRef.current.innerHTML = "";
+                try {
                     window.google.accounts.id.renderButton(containerRef.current, {
                         theme: "outline",
                         size: "large",
@@ -75,7 +102,7 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
                         logo_alignment: "center"
                     });
                 } catch (err) {
-                    console.error("Google Identity initialization/render error:", err);
+                    console.error("Google button render error:", err);
                 }
             })
             .catch((err) => {
@@ -104,4 +131,5 @@ export default function GoogleAuthButton({ onAuthSuccess, text = "Continue with 
         </div>
     );
 }
+
 
