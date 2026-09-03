@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { toast } from 'react-hot-toast';
 
 const BrandContext = createContext();
@@ -15,24 +15,25 @@ export const BrandProvider = ({ children }) => {
         try {
             setLoading(true);
             const token = localStorage.getItem("zynora_token");
-            if (!token) return;
+            if (!token) {
+                setLoading(false);
+                return;
+            }
 
-            const baseURL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-            const response = await axios.get(`${baseURL}/api/brands`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get('/api/brands');
             
-            if (response.data.success) {
-                setBrands(response.data.brands);
+            if (response.data?.success) {
+                const fetchedBrands = response.data.brands || [];
+                setBrands(fetchedBrands);
                 // If there's no active brand, but we have brands, select the first one by default
-                if (response.data.brands.length > 0) {
+                if (fetchedBrands.length > 0) {
                     const savedActiveBrandId = localStorage.getItem("activeBrandId");
-                    const found = response.data.brands.find(b => b.id === savedActiveBrandId);
+                    const found = fetchedBrands.find(b => b.id === savedActiveBrandId);
                     if (found) {
                         setActiveBrand(found);
                     } else {
-                        setActiveBrand(response.data.brands[0]);
-                        localStorage.setItem("activeBrandId", response.data.brands[0].id);
+                        setActiveBrand(fetchedBrands[0]);
+                        localStorage.setItem("activeBrandId", fetchedBrands[0].id);
                     }
                 } else {
                     setActiveBrand(null);
@@ -40,7 +41,16 @@ export const BrandProvider = ({ children }) => {
                 }
             }
         } catch (error) {
-            console.error("Error fetching brands:", error);
+            if (error.response?.status === 401) {
+                // Token is expired or invalid
+                localStorage.removeItem("zynora_token");
+                localStorage.removeItem("zynora_user");
+                localStorage.removeItem("activeBrandId");
+                setBrands([]);
+                setActiveBrand(null);
+            } else {
+                console.error("Error fetching brands:", error.message || error);
+            }
         } finally {
             setLoading(false);
         }
