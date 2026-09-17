@@ -9,6 +9,11 @@ import {
 } from "../../services/userService";
 import { getDashboardData } from "../../services/dashboardService";
 import {
+    PLATFORM_OPTIONS,
+    TARGET_AUDIENCE_OPTIONS,
+    BRAND_TONE_OPTIONS
+} from "../../constants/creativeOptions";
+import {
     User,
     Shield,
     Sparkles,
@@ -527,10 +532,11 @@ function Settings() {
                                             onChange={(e) => setLocalAiPrefs({ ...localAiPrefs, defaultPlatform: e.target.value })}
                                             className="input-clean"
                                         >
-                                            <option value="Instagram">Instagram</option>
-                                            <option value="Facebook">Facebook</option>
-                                            <option value="YouTube">YouTube</option>
-                                            <option value="LinkedIn">LinkedIn</option>
+                                            {PLATFORM_OPTIONS.map((opt) => (
+                                                <option key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
 
@@ -541,10 +547,11 @@ function Settings() {
                                             onChange={(e) => setLocalAiPrefs({ ...localAiPrefs, defaultBrandTone: e.target.value })}
                                             className="input-clean"
                                         >
-                                            <option value="Modern">Modern & Energetic</option>
-                                            <option value="Professional">Professional & Trustworthy</option>
-                                            <option value="Luxury">Luxury & Premium</option>
-                                            <option value="Friendly">Friendly & Approachable</option>
+                                            {BRAND_TONE_OPTIONS.map((opt) => (
+                                                <option key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
 
@@ -555,10 +562,11 @@ function Settings() {
                                             onChange={(e) => setLocalAiPrefs({ ...localAiPrefs, defaultTargetAudience: e.target.value })}
                                             className="input-clean"
                                         >
-                                            <option value="Students">Gen Z & Students</option>
-                                            <option value="Professionals">Working Professionals</option>
-                                            <option value="Parents">Parents & Families</option>
-                                            <option value="Tech Enthusiasts">Tech Enthusiasts</option>
+                                            {TARGET_AUDIENCE_OPTIONS.map((opt) => (
+                                                <option key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>

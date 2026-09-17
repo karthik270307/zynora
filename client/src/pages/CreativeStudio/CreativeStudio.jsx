@@ -3,7 +3,14 @@ import { generateCreativeBrief } from "../../services/aiService";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
 import { createCreative } from "../../services/creativeService";
-import axios from 'axios';
+import {
+    PLATFORM_OPTIONS,
+    TARGET_AUDIENCE_OPTIONS,
+    BRAND_TONE_OPTIONS,
+    CAMPAIGN_GOAL_OPTIONS,
+    CREATIVE_CATEGORY_OPTIONS,
+    CREATIVE_ANGLE_OPTIONS
+} from "../../constants/creativeOptions";
 import {
     Sparkles,
     Copy,
@@ -19,7 +26,10 @@ import {
     Clock,
     RefreshCw,
     CheckCircle2,
-    ArrowRight
+    ArrowRight,
+    Target,
+    Eye,
+    Compass
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -35,6 +45,8 @@ function CreativeStudio() {
         productName: "",
         description: "",
         campaignGoal: "Product Launch",
+        creativeCategory: "Social Feed Ad",
+        creativeAngle: "Problem-Agitate-Solution",
         targetAudience: "Students",
         platform: "Instagram",
         brandTone: "Modern",
@@ -79,6 +91,8 @@ function CreativeStudio() {
                 productName: form.productName,
                 description: form.description,
                 campaignGoal: form.campaignGoal,
+                creativeCategory: form.creativeCategory,
+                creativeAngle: form.creativeAngle,
                 targetAudience: form.targetAudience,
                 platform: form.platform,
                 brandTone: form.brandTone,
@@ -237,10 +251,45 @@ function CreativeStudio() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Product Launch">Product Launch</option>
-                                    <option value="Festival Sale">Festival Sale / Offer</option>
-                                    <option value="Brand Awareness">Brand Awareness</option>
-                                    <option value="Direct Conversion">Direct Conversion</option>
+                                    {CAMPAIGN_GOAL_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-[var(--text-secondary)]">Ad Format / Category</label>
+                                <select
+                                    name="creativeCategory"
+                                    value={form.creativeCategory}
+                                    onChange={handleChange}
+                                    className="input-clean"
+                                >
+                                    {CREATIVE_CATEGORY_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-[var(--text-secondary)]">Strategic Angle</label>
+                                <select
+                                    name="creativeAngle"
+                                    value={form.creativeAngle}
+                                    onChange={handleChange}
+                                    className="input-clean"
+                                >
+                                    {CREATIVE_ANGLE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -252,10 +301,11 @@ function CreativeStudio() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Students">Gen Z & Students</option>
-                                    <option value="Professionals">Working Professionals</option>
-                                    <option value="Parents">Parents & Families</option>
-                                    <option value="Fitness Users">Fitness & Health</option>
+                                    {TARGET_AUDIENCE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -269,10 +319,11 @@ function CreativeStudio() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Instagram">Instagram</option>
-                                    <option value="Facebook">Facebook</option>
-                                    <option value="LinkedIn">LinkedIn</option>
-                                    <option value="Twitter">Twitter / X</option>
+                                    {PLATFORM_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -284,10 +335,11 @@ function CreativeStudio() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Modern">Modern & Sleek</option>
-                                    <option value="Professional">Professional & Direct</option>
-                                    <option value="Luxury">Luxury & Premium</option>
-                                    <option value="Bold">Bold & Provocative</option>
+                                    {BRAND_TONE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -429,6 +481,87 @@ function CreativeStudio() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Strategic Angle & Psychological Mechanism */}
+                            {result.strategicAngle && (
+                                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-xs space-y-3">
+                                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <Zap className="w-4 h-4 text-amber-500" />
+                                            <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                                                Strategic Angle & Psychological Mechanism
+                                            </h4>
+                                        </div>
+                                        <button
+                                            onClick={() => handleCopy(result.strategicAngle, "angle")}
+                                            className="btn-secondary text-xs h-7 px-2.5"
+                                        >
+                                            {copiedIndex === "angle" ? <Check className="w-3.5 h-3.5 text-[var(--success)]" /> : <Copy className="w-3.5 h-3.5" />}
+                                            <span>{copiedIndex === "angle" ? "Copied" : "Copy"}</span>
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                        {result.strategicAngle}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Visual Direction & Staging */}
+                            {result.visualDirection && (
+                                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-xs space-y-3">
+                                    <div className="flex items-center justify-between border-b border-[var(--border)] pb-2.5">
+                                        <div className="flex items-center gap-2">
+                                            <Eye className="w-4 h-4 text-[#0ea5e9]" />
+                                            <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                                                Visual Art Direction & Scene Staging
+                                            </h4>
+                                        </div>
+                                        <button
+                                            onClick={() => handleCopy(result.visualDirection, "visual")}
+                                            className="btn-secondary text-xs h-7 px-2.5"
+                                        >
+                                            {copiedIndex === "visual" ? <Check className="w-3.5 h-3.5 text-[var(--success)]" /> : <Copy className="w-3.5 h-3.5" />}
+                                            <span>{copiedIndex === "visual" ? "Copied" : "Copy"}</span>
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                        {result.visualDirection}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Target Pain Point & Key Benefit */}
+                            {(result.targetPainPoint || result.keyBenefit) && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {result.targetPainPoint && (
+                                        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-xs space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <Target className="w-3.5 h-3.5 text-rose-500" />
+                                                <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                                                    Target Pain Point
+                                                </h4>
+                                            </div>
+                                            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                                {result.targetPainPoint}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {result.keyBenefit && (
+                                        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-xs space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-[var(--success)]" />
+                                                <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                                                    Key Value Proposition
+                                                </h4>
+                                            </div>
+                                            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                                {result.keyBenefit}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

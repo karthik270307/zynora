@@ -2,7 +2,11 @@ import React, { useState, useEffect } from "react";
 import { generateRecommendations } from "../../services/recommendationService";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
-import axios from "axios";
+import {
+    PLATFORM_OPTIONS,
+    TARGET_AUDIENCE_OPTIONS,
+    BRAND_TONE_OPTIONS
+} from "../../constants/creativeOptions";
 import {
     Lightbulb,
     Sparkles,
@@ -173,7 +177,7 @@ function Recommendations() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-[#374151] dark:text-slate-300">Platform</label>
                                 <select
@@ -182,9 +186,11 @@ function Recommendations() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Instagram">Instagram</option>
-                                    <option value="Facebook">Facebook</option>
-                                    <option value="LinkedIn">LinkedIn</option>
+                                    {PLATFORM_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -196,9 +202,27 @@ function Recommendations() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Students">Students & Gen Z</option>
-                                    <option value="Professionals">Working Professionals</option>
-                                    <option value="Parents">Parents & Families</option>
+                                    {TARGET_AUDIENCE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-[#374151] dark:text-slate-300">Brand Tone</label>
+                                <select
+                                    name="brandTone"
+                                    value={form.brandTone}
+                                    onChange={handleChange}
+                                    className="input-clean"
+                                >
+                                    {BRAND_TONE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -246,36 +270,108 @@ function Recommendations() {
                         </div>
                     )}
 
-                    {result && (
-                        <div className="space-y-6 animate-scale-up">
-                            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 shadow-xs space-y-4">
-                                <h3 className="text-sm font-bold text-[#111827] dark:text-white border-b border-[#f3f4f6] dark:border-slate-800 pb-3">
-                                    Actionable Recommendations
-                                </h3>
-                                <div className="space-y-4 text-xs">
-                                    {Array.isArray(result.recommendations || result.items) ? (
-                                        (result.recommendations || result.items).map((item, idx) => (
-                                            <div key={idx} className="p-4 bg-[var(--surface-secondary)] border border-[var(--border)] rounded-lg space-y-2">
-                                                <div className="flex items-start gap-2.5">
-                                                    <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />
-                                                    <h4 className="font-bold text-[var(--text-primary)] text-sm">{item.title || "Optimization Insight"}</h4>
-                                                </div>
-                                                <div className="pl-6.5 space-y-1.5">
-                                                    <p className="text-[var(--text-secondary)]"><strong className="text-[var(--text-primary)]">Problem:</strong> {item.problem}</p>
-                                                    <p className="text-[var(--text-secondary)]"><strong className="text-[var(--text-primary)]">Action:</strong> {item.action}</p>
-                                                    <p className="text-[var(--text-secondary)]"><strong className="text-[var(--text-primary)]">Impact:</strong> {item.impact}</p>
-                                                </div>
+                    {result && (() => {
+                        const recList = Array.isArray(result)
+                            ? result
+                            : (result?.recommendations || result?.data?.recommendations || result?.items || result?.data?.items || []);
+                        const assessment = result?.overallAssessment || result?.data?.overallAssessment;
+                        const priority = result?.priority || result?.data?.priority;
+
+                        return (
+                            <div className="space-y-5 animate-scale-up">
+                                {/* Overall Assessment Card if present */}
+                                {assessment && (
+                                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-xs space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Sparkles className="w-4 h-4 text-[#0ea5e9]" />
+                                                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                                                    Executive Strategic Assessment
+                                                </h3>
                                             </div>
-                                        ))
-                                    ) : (
-                                        <div className="p-4 bg-[var(--surface-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-secondary)]">
-                                            {result.summary || "High conversion opportunity identified by optimizing headline hook clarity."}
+                                            {priority && (
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 uppercase">
+                                                    Priority: {priority}
+                                                </span>
+                                            )}
                                         </div>
-                                    )}
+                                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                            {assessment}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Actionable Recommendations List */}
+                                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 shadow-xs space-y-4">
+                                    <div className="flex items-center justify-between border-b border-[#f3f4f6] dark:border-slate-800 pb-3">
+                                        <h3 className="text-sm font-bold text-[#111827] dark:text-white">
+                                            Actionable Recommendations ({recList.length || 1})
+                                        </h3>
+                                        <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                                            Targeted for {form.platform}
+                                        </span>
+                                    </div>
+
+                                    <div className="space-y-3.5 text-xs">
+                                        {recList.length > 0 ? (
+                                            recList.map((item, idx) => {
+                                                const isObj = typeof item === 'object' && item !== null;
+                                                const title = isObj ? (item.title || `Recommendation #${idx + 1}`) : `Recommendation #${idx + 1}`;
+                                                const problem = isObj ? item.problem : null;
+                                                const action = isObj ? (item.action || item.suggestion || item.recommendation) : (typeof item === 'string' ? item : JSON.stringify(item));
+                                                const reason = isObj ? item.reason : null;
+                                                const impact = isObj ? item.impact : null;
+
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        className="p-4 bg-[var(--surface-secondary)] border border-[var(--border)] rounded-lg space-y-2.5 transition-all hover:border-[var(--primary-border)]"
+                                                    >
+                                                        <div className="flex items-start gap-2.5">
+                                                            <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />
+                                                            <h4 className="font-bold text-[var(--text-primary)] text-sm">
+                                                                {title}
+                                                            </h4>
+                                                        </div>
+                                                        <div className="pl-6.5 space-y-1.5">
+                                                            {problem && (
+                                                                <p className="text-[var(--text-secondary)]">
+                                                                    <strong className="text-[var(--text-primary)]">Problem: </strong>
+                                                                    {problem}
+                                                                </p>
+                                                            )}
+                                                            {action && (
+                                                                <p className="text-[var(--text-secondary)]">
+                                                                    <strong className="text-[var(--text-primary)]">Action: </strong>
+                                                                    {action}
+                                                                </p>
+                                                            )}
+                                                            {reason && (
+                                                                <p className="text-[var(--text-secondary)]">
+                                                                    <strong className="text-[var(--text-primary)]">Why It Works: </strong>
+                                                                    {reason}
+                                                                </p>
+                                                            )}
+                                                            {impact && (
+                                                                <p className="text-[var(--text-secondary)]">
+                                                                    <strong className="text-[var(--text-primary)]">Expected Impact: </strong>
+                                                                    <span className="text-[var(--primary)] font-semibold">{impact}</span>
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="p-4 bg-[var(--surface-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-secondary)]">
+                                                {result.summary || result.message || "High conversion opportunity identified by optimizing headline hook clarity."}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </div>
             </div>
         </div>

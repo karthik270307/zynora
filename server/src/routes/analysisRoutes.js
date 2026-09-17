@@ -11,4 +11,9 @@ router.post(
     analyzeCreative
 );
 
+router.post(
+    "/",
+    analyzeCreative
+);
+
 module.exports = router;

@@ -260,8 +260,13 @@ function VideoGenerator() {
                                 >
                                     <option value="Instagram">Instagram Reels (9:16)</option>
                                     <option value="TikTok">TikTok (9:16)</option>
-                                    <option value="YouTube">YouTube Shorts</option>
-                                    <option value="LinkedIn">LinkedIn Video (16:9)</option>
+                                    <option value="YouTube">YouTube Shorts (9:16)</option>
+                                    <option value="Facebook">Facebook Reels & Video</option>
+                                    <option value="LinkedIn">LinkedIn Video</option>
+                                    <option value="Twitter">X / Twitter Video</option>
+                                    <option value="Snapchat">Snapchat Spotlight</option>
+                                    <option value="Pinterest">Pinterest Video Pin</option>
+                                    <option value="Google Ads">Google Video Ads</option>
                                 </select>
                             </div>
 

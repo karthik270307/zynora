@@ -4,6 +4,11 @@ import { getCreatives, updateCreative } from "../../services/creativeService";
 import ContextSelector from "../../components/Common/ContextSelector";
 import axios from "axios";
 import {
+    PLATFORM_OPTIONS,
+    TARGET_AUDIENCE_OPTIONS,
+    BRAND_TONE_OPTIONS
+} from "../../constants/creativeOptions";
+import {
     TrendingUp,
     Sparkles,
     CheckCircle2,
@@ -225,7 +230,7 @@ function Prediction() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-[var(--text-secondary)]">Platform</label>
                                 <select
@@ -234,9 +239,11 @@ function Prediction() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Instagram">Instagram</option>
-                                    <option value="Facebook">Facebook</option>
-                                    <option value="LinkedIn">LinkedIn</option>
+                                    {PLATFORM_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -248,9 +255,27 @@ function Prediction() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Students">Students & Gen Z</option>
-                                    <option value="Professionals">Working Professionals</option>
-                                    <option value="Parents">Parents</option>
+                                    {TARGET_AUDIENCE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-[var(--text-secondary)]">Brand Tone</label>
+                                <select
+                                    name="brandTone"
+                                    value={form.brandTone}
+                                    onChange={handleChange}
+                                    className="input-clean"
+                                >
+                                    {BRAND_TONE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

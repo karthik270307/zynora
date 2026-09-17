@@ -4,6 +4,7 @@ import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
 import { createCreative } from "../../services/creativeService";
 import axios from 'axios';
+import { PLATFORM_OPTIONS } from "../../constants/creativeOptions";
 import {
     Image as ImageIcon,
     Sparkles,
@@ -242,10 +243,11 @@ function ImageGenerator() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Instagram">Instagram Feed (1:1)</option>
-                                    <option value="Facebook">Facebook Feed</option>
-                                    <option value="LinkedIn">LinkedIn Sponsored</option>
-                                    <option value="Twitter">Twitter / X Card</option>
+                                    {PLATFORM_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

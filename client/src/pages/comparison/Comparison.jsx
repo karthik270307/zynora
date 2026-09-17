@@ -406,13 +406,35 @@ function Comparison() {
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-lg bg-[#f9fafb] dark:bg-slate-900 border border-[#e5e7eb] dark:border-slate-800 space-y-2">
-                        <h4 className="text-xs font-bold text-[#111827] dark:text-white uppercase tracking-wider">
-                            AI Strategic Recommendation
-                        </h4>
-                        <p className="text-xs text-[#4b5563] dark:text-slate-300 leading-relaxed">
-                            {result.reasoning || result.recommendation || "Variant provides superior clarity and stronger action-oriented hook."}
-                        </p>
+                    <div className="p-4 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border)] space-y-3">
+                        <div>
+                            <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                                <Sparkles className="w-3.5 h-3.5 text-[var(--primary)]" />
+                                AI Strategic Recommendation
+                            </h4>
+                            <p className="text-xs text-[var(--text-secondary)] leading-relaxed mt-1">
+                                {result.reasoning || result.recommendation || "Variant provides superior clarity and stronger action-oriented hook."}
+                            </p>
+                        </div>
+
+                        {Array.isArray(result.recommendations) && result.recommendations.length > 0 && (
+                            <div className="pt-3 border-t border-[var(--border)] space-y-2">
+                                <h5 className="text-[11px] font-bold text-[var(--text-primary)] uppercase tracking-wider">
+                                    Actionable Optimization Steps ({result.recommendations.length})
+                                </h5>
+                                <div className="space-y-2">
+                                    {result.recommendations.map((rec, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs text-[var(--text-secondary)] flex items-start gap-2.5"
+                                        >
+                                            <CheckCircle2 className="w-4 h-4 text-[var(--success)] shrink-0 mt-0.5" />
+                                            <span className="leading-relaxed">{rec}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

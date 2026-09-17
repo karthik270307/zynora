@@ -10,5 +10,5 @@ export const generateRecommendations = async (data) => {
 
     console.log("Recommendation API response:", response);
 
-    return response;
+    return response.data;
 };

@@ -250,38 +250,36 @@ Use exactly this structure:
 }
 `;
 
-    try {
+    const CANDIDATE_MODELS = [
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash-lite"
+    ];
 
-        const response = await ai.models.generateContent({
-            model: "gemini-3.6-flash",
-            contents: prompt,
+    let lastError = null;
 
-            config: {
-                responseMimeType: "application/json"
+    for (const model of CANDIDATE_MODELS) {
+        try {
+            const response = await ai.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json"
+                }
+            });
+
+            const text = response.text;
+            if (text) {
+                return JSON.parse(text);
             }
-        });
-
-        const text = response.text;
-
-        if (!text) {
-            throw new Error(
-                "Gemini returned an empty prediction response"
-            );
+        } catch (err) {
+            console.warn(`[predictionService] Model ${model} failed:`, err.message);
+            lastError = err;
         }
-
-        const prediction = JSON.parse(text);
-
-        return prediction;
-
-    } catch (error) {
-
-        console.error(
-            "Gemini prediction error:",
-            error
-        );
-
-        throw error;
     }
+
+    console.error("Gemini prediction error across all models:", lastError);
+    throw lastError || new Error("Prediction generation failed across all models");
 };
 
 module.exports = {

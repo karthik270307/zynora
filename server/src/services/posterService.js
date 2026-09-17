@@ -47,12 +47,27 @@ Return ONLY valid JSON.
 }
 `;
 
-    const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: prompt
-    });
+    const models = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"];
 
-    return response.text;
+    for (const model of models) {
+        try {
+            const response = await ai.models.generateContent({
+                model,
+                contents: prompt,
+                config: {
+                    responseMimeType: "application/json"
+                }
+            });
+
+            if (response && response.text) {
+                return response.text;
+            }
+        } catch (err) {
+            console.warn(`[posterService] Model ${model} failed:`, err.message);
+        }
+    }
+
+    throw new Error("Failed to generate poster content across all models");
 };
 
 module.exports = {

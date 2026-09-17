@@ -4,6 +4,12 @@ import html2canvas from "html2canvas";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
 import {
+    PLATFORM_OPTIONS,
+    TARGET_AUDIENCE_OPTIONS,
+    BRAND_TONE_OPTIONS,
+    CAMPAIGN_GOAL_OPTIONS
+} from "../../constants/creativeOptions";
+import {
     Sparkles,
     Download,
     BarChart3,
@@ -271,10 +277,11 @@ function PosterGenerator() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Product Launch">Product Launch</option>
-                                    <option value="Festival Sale">Festival Sale</option>
-                                    <option value="Brand Awareness">Brand Awareness</option>
-                                    <option value="Offer">Special Offer</option>
+                                    {CAMPAIGN_GOAL_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -286,10 +293,11 @@ function PosterGenerator() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Students">Students & Gen Z</option>
-                                    <option value="Professionals">Professionals</option>
-                                    <option value="Parents">Parents</option>
-                                    <option value="Fitness Users">Fitness Users</option>
+                                    {TARGET_AUDIENCE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -303,9 +311,11 @@ function PosterGenerator() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Instagram">Instagram</option>
-                                    <option value="Facebook">Facebook</option>
-                                    <option value="LinkedIn">LinkedIn</option>
+                                    {PLATFORM_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
 
@@ -317,10 +327,11 @@ function PosterGenerator() {
                                     onChange={handleChange}
                                     className="input-clean"
                                 >
-                                    <option value="Modern">Modern</option>
-                                    <option value="Professional">Professional</option>
-                                    <option value="Luxury">Luxury</option>
-                                    <option value="Bold">Bold</option>
+                                    {BRAND_TONE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

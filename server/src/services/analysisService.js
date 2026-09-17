@@ -8,68 +8,36 @@ const sleep = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
 const generateWithRetry = async (prompt) => {
+    const models = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"];
 
-    const maxAttempts = 3;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-
+    for (let attempt = 0; attempt < models.length; attempt++) {
+        const model = models[attempt];
         try {
-
-           const response = await ai.models.generateContent({
-    model: "gemini-3.6-flash",
+            const response = await ai.models.generateContent({
+                model,
                 contents: prompt,
-
                 config: {
                     responseMimeType: "application/json"
                 }
             });
 
             return response;
-
         } catch (error) {
-
             const status = error?.status || error?.code;
-
             console.error(
-                `Gemini analysis attempt ${attempt}/${maxAttempts} failed:`,
+                `Gemini analysis attempt with ${model} failed:`,
                 status,
                 error?.message
             );
 
-            // Retry temporary server/rate-limit errors
-            if (
-                (status === 503 ||
-                    status === 429 ||
-                    status === 500) &&
-                attempt < maxAttempts
-            ) {
-
-                const delay =
-                    attempt === 1
-                        ? 2000
-                        : attempt === 2
-                            ? 5000
-                            : 10000;
-
-                console.log(
-                    `Retrying Gemini analysis in ${delay / 1000}s...`
-                );
-
-                await sleep(delay);
-
+            if (attempt < models.length - 1) {
+                await sleep(500);
             } else {
-
                 throw error;
-
             }
         }
     }
-
-    throw new Error(
-        "Gemini analysis failed after multiple attempts."
-    );
 };
-
 
 const analyzeCreative = async (data) => {
 
