@@ -1,51 +1,81 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
 const axios = require("axios");
 
 const userModel = require("../models/userModel");
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+const googleClient = new OAuth2Client(googleClientId);
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 exports.register = async (req, res) => {
     try {
         const { name, email, password } = req.body;
 
-        if (!name || !email || !password) {
+        if (!name || !name.trim()) {
             return res.status(400).json({
                 success: false,
-                message: "Name, email and password are required"
+                message: "Full name is required"
             });
         }
 
-        const existingUser = await userModel.findUserByEmail(email);
+        if (!email || !email.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Email address is required"
+            });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+
+        if (!EMAIL_REGEX.test(normalizedEmail)) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide a valid email address"
+            });
+        }
+
+        if (!password || password.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters long"
+            });
+        }
+
+        const existingUser = await userModel.findUserByEmail(normalizedEmail);
 
         if (existingUser) {
             return res.status(409).json({
                 success: false,
-                message: "Email already registered"
+                message: "An account with this email already exists"
             });
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
 
         const user = await userModel.createUser(
-            name,
-            email,
+            name.trim(),
+            normalizedEmail,
             passwordHash
         );
 
+        const secret = process.env.JWT_SECRET || "zynora_jwt_secret_default_key_2026";
         const token = jwt.sign(
             {
                 id: user.id,
                 email: user.email
             },
-            process.env.JWT_SECRET,
+            secret,
             {
                 expiresIn: "7d"
             }
         );
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
-            message: "Registration successful",
+            message: "Account created successfully",
             user: {
                 id: user.id,
                 name: user.name,
@@ -56,10 +86,10 @@ exports.register = async (req, res) => {
 
     } catch (error) {
         console.error("Registration error:", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: "Registration failed",
-            error: error.message
+            message: "Unable to complete registration. Please try again.",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined
         });
     }
 };
@@ -75,19 +105,13 @@ exports.login = async (req, res) => {
             });
         }
 
-        const user = await userModel.findUserByEmail(email);
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await userModel.findUserByEmail(normalizedEmail);
 
-        if (!user) {
+        if (!user || !user.password_hash) {
             return res.status(401).json({
                 success: false,
                 message: "Invalid email or password"
-            });
-        }
-
-        if (!user.password_hash) {
-            return res.status(400).json({
-                success: false,
-                message: "Please sign in using Google"
             });
         }
 
@@ -103,18 +127,19 @@ exports.login = async (req, res) => {
             });
         }
 
+        const secret = process.env.JWT_SECRET || "zynora_jwt_secret_default_key_2026";
         const token = jwt.sign(
             {
                 id: user.id,
                 email: user.email
             },
-            process.env.JWT_SECRET,
+            secret,
             {
                 expiresIn: "7d"
             }
         );
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "Login successful",
             user: {
@@ -127,72 +152,80 @@ exports.login = async (req, res) => {
 
     } catch (error) {
         console.error("Login error:", error);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: "Login failed",
-            error: error.message
+            message: "Unable to process login. Please try again.",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined
         });
     }
 };
 
 exports.googleLogin = async (req, res) => {
     try {
-        const { token: googleToken } = req.body;
+        const credential = req.body.credential || req.body.token;
 
-        if (!googleToken) {
+        if (!credential) {
             return res.status(400).json({
                 success: false,
-                message: "Google token is required"
+                message: "Google authentication token is required"
             });
         }
 
-        let googleUser;
-        // Method 1: ID Token Verification
+        let googleUser = null;
+
+        // Method 1: Official Google Auth Library Verification
         try {
-            const googleRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${googleToken}`);
-            googleUser = googleRes.data;
-        } catch (err) {
-            // Method 2: Bearer Access Token Verification
+            const ticket = await googleClient.verifyIdToken({
+                idToken: credential,
+                audience: googleClientId ? [googleClientId] : undefined
+            });
+            googleUser = ticket.getPayload();
+        } catch (authLibError) {
+            console.warn("google-auth-library verifyIdToken failed, attempting tokeninfo fallback:", authLibError.message);
+            // Method 2: Resilient Fallback to Google TokenInfo Endpoint
             try {
-                const userRes = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
-                    headers: { Authorization: `Bearer ${googleToken}` }
+                const tokenInfoRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${credential}`, {
+                    timeout: 5000
                 });
-                googleUser = { ...userRes.data, sub: userRes.data.sub || userRes.data.id };
-            } catch (err2) {
-                // Method 3: Access Token Query Parameter Verification
+                googleUser = tokenInfoRes.data;
+            } catch (fallbackError) {
+                // Method 3: Access Token userinfo fallback
                 try {
-                    const tokenInfoRes = await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${googleToken}`);
-                    googleUser = tokenInfoRes.data;
-                } catch (err3) {
-                    console.error("All Google token verification attempts failed:", err.message, err2.message, err3.message);
+                    const userRes = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo", {
+                        headers: { Authorization: `Bearer ${credential}` },
+                        timeout: 5000
+                    });
+                    googleUser = { ...userRes.data, sub: userRes.data.sub || userRes.data.id };
+                } catch (userinfoError) {
+                    console.error("All Google token verification methods failed:", authLibError.message, fallbackError.message, userinfoError.message);
                     return res.status(401).json({
                         success: false,
-                        message: "Invalid or expired Google token"
+                        message: "Invalid or expired Google authentication credential"
                     });
                 }
             }
         }
 
-        const email = googleUser.email;
-        const name = googleUser.name || (email ? email.split("@")[0] : "Google User");
-        const googleId = googleUser.sub || googleUser.user_id || googleUser.id || Math.random().toString();
-
-        if (!email) {
+        if (!googleUser || !googleUser.email) {
             return res.status(400).json({
                 success: false,
                 message: "Google account did not return a verified email address"
             });
         }
 
-        let user = await userModel.findUserByEmail(email);
+        const normalizedEmail = googleUser.email.trim().toLowerCase();
+        const name = googleUser.name || (googleUser.email ? googleUser.email.split("@")[0] : "Google User");
+        const googleId = googleUser.sub || googleUser.user_id || googleUser.id || Math.random().toString();
+
+        let user = await userModel.findUserByEmail(normalizedEmail);
 
         if (!user) {
-            const randomPassword = await bcrypt.hash(googleId + Math.random().toString(), 10);
-            user = await userModel.createUser(name, email, randomPassword);
+            // New user registration via Google
+            const randomPassword = await bcrypt.hash("google_" + googleId + "_" + Date.now(), 10);
+            user = await userModel.createUser(name, normalizedEmail, randomPassword);
         }
 
-        const secret = process.env.JWT_SECRET || "zynora_default_jwt_secret_key_2026";
-
+        const secret = process.env.JWT_SECRET || "zynora_jwt_secret_default_key_2026";
         const token = jwt.sign(
             {
                 id: user.id,
@@ -214,14 +247,19 @@ exports.googleLogin = async (req, res) => {
             },
             token
         });
+
     } catch (error) {
-        console.error("Google auth unexpected server error:", error);
+        console.error("Google login error:", error);
         return res.status(500).json({
             success: false,
-            message: "Google authentication failed",
-            error: error.message
+            message: "Google authentication failed. Please try again.",
+            error: process.env.NODE_ENV === "development" ? error.message : undefined
         });
     }
+};
+
+exports.getMe = async (req, res) => {
+    return exports.getProfile(req, res);
 };
 
 exports.getProfile = async (req, res) => {

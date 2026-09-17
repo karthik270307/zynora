@@ -89,32 +89,43 @@ function CreativeStudio() {
                 projectId: selectedProjectId || null
             };
 
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/ai/creative/generate`, payload);
-            if (response.data.success) {
-                setResult(response.data.data);
+            const res = await generateCreativeBrief(payload);
+            if (res.success) {
+                setResult(res.data);
                 toast.success("Marketing copy generated successfully!", { id: "generate" });
+            } else {
+                toast.error(res.message || "Failed to generate copy", { id: "generate" });
             }
         } catch (err) {
             console.error("Generation error:", err);
-            toast.error(err.response?.data?.message || "Failed to generate copy", { id: "generate" });
+            toast.error(err.response?.data?.message || err.message || "Failed to generate copy", { id: "generate" });
         } finally {
             setLoading(false);
         }
     };
 
     const handleSave = async (creativeIndex) => {
-        if (!result || !result.variants?.[creativeIndex]) return;
-        const variant = result.variants[creativeIndex];
+        if (!result) return;
+        const variant = (Array.isArray(result.variants) && typeof creativeIndex === 'number')
+            ? result.variants[creativeIndex]
+            : null;
+
+        const headline = variant?.headline || result.headline || result.primaryHeadline || "";
+        const subheadline = variant?.subheadline || result.subheadline || "";
+        const caption = variant?.caption || result.adCopy || result.caption || result.bodyCopy || "";
+        const cta = variant?.cta || result.cta || "";
+
         try {
+            setSaving(true);
             toast.loading("Saving creative asset...", { id: "save" });
             const payload = {
                 brandName: form.brandName,
                 productName: form.productName,
                 description: form.description,
-                headline: variant.headline,
-                subheadline: variant.subheadline,
-                caption: variant.caption,
-                cta: variant.cta,
+                headline,
+                subheadline,
+                caption,
+                cta,
                 platform: form.platform,
                 targetAudience: form.targetAudience,
                 brandTone: form.brandTone,
@@ -129,7 +140,9 @@ function CreativeStudio() {
                 setSaved(true);
             }
         } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to save creative");
+            toast.error(err.response?.data?.message || "Failed to save creative", { id: "save" });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -360,7 +373,7 @@ function CreativeStudio() {
                                         <p className="text-xs text-[var(--text-secondary)]">Targeted for {form.platform}</p>
                                     </div>
                                     <button
-                                        onClick={() => copyToClipboard(result.headline, "headline")}
+                                        onClick={() => handleCopy(result.headline, "headline")}
                                         className="btn-secondary text-xs h-8 px-3"
                                     >
                                         {copiedIndex === "headline" ? <Check className="w-3.5 h-3.5 text-[var(--success)]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -384,7 +397,7 @@ function CreativeStudio() {
                                         Body Copy & Caption
                                     </h4>
                                     <button
-                                        onClick={() => copyToClipboard(result.adCopy || result.caption, "copy")}
+                                        onClick={() => handleCopy(result.adCopy || result.caption, "copy")}
                                         className="btn-secondary text-xs h-8 px-3"
                                     >
                                         {copiedIndex === "copy" ? <Check className="w-3.5 h-3.5 text-[var(--success)]" /> : <Copy className="w-3.5 h-3.5" />}

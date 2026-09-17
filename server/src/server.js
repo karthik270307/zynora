@@ -30,8 +30,57 @@ const projectRoutes = require("./routes/projectRoutes");
 const campaignRoutes = require("./routes/campaignRoutes");
 const memberRoutes = require("./routes/memberRoutes");
 
-app.use(cors());
-app.use(express.json());
+// Security headers compatible with Google Identity Services & OAuth Popups
+app.use((req, res, next) => {
+    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+    res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+    next();
+});
+
+// Configure CORS for local development and deployed frontend origins
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://localhost:5000"
+];
+
+if (process.env.FRONTEND_URL) {
+    process.env.FRONTEND_URL.split(",").forEach(url => {
+        const trimmed = url.trim();
+        if (trimmed && !allowedOrigins.includes(trimmed)) {
+            allowedOrigins.push(trimmed);
+        }
+    });
+}
+
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+            if (!origin) return callback(null, true);
+            
+            // Allow localhost/127.0.0.1, configured frontend URLs, and Vercel/Render preview domains
+            if (
+                allowedOrigins.includes(origin) ||
+                origin.endsWith(".vercel.app") ||
+                origin.endsWith(".onrender.com") ||
+                origin.includes("localhost") ||
+                origin.includes("127.0.0.1")
+            ) {
+                return callback(null, true);
+            }
+            return callback(null, true); // Permissive fallback to prevent breaking deployments
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+    })
+);
+
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.use(
     "/generated-images",

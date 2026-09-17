@@ -11,4 +11,16 @@ router.post(
     aiController.generateContent
 );
 
+router.post(
+    "/creative/generate",
+    authMiddleware,
+    aiController.generateContent
+);
+
+router.post(
+    "/generate",
+    authMiddleware,
+    aiController.generateContent
+);
+
 module.exports = router;

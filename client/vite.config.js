@@ -20,6 +20,11 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+    },
+  },
   build: {
     rolldownOptions: {
       external: ["onnxruntime-web", "onnxruntime-web/webgpu"],

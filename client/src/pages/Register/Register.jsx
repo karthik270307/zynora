@@ -16,10 +16,12 @@ function Register() {
     const [form, setForm] = useState({
         name: "",
         email: "",
-        password: ""
+        password: "",
+        confirmPassword: ""
     });
 
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -32,10 +34,36 @@ function Register() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!form.name.trim()) {
+            toast.error("Please enter your full name");
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(form.email.trim())) {
+            toast.error("Please enter a valid email address");
+            return;
+        }
+
+        if (form.password.length < 6) {
+            toast.error("Password must be at least 6 characters long");
+            return;
+        }
+
+        if (form.password !== form.confirmPassword) {
+            toast.error("Passwords do not match");
+            return;
+        }
+
         setLoading(true);
 
         try {
-            const data = await registerUser(form);
+            const data = await registerUser({
+                name: form.name.trim(),
+                email: form.email.trim(),
+                password: form.password
+            });
 
             if (data.success) {
                 login(data.user, data.token);
@@ -54,10 +82,10 @@ function Register() {
         }
     };
 
-    const handleGoogleSuccess = async (idToken) => {
+    const handleGoogleSuccess = async (credential) => {
         setGoogleLoading(true);
         try {
-            const data = await googleAuthUser(idToken);
+            const data = await googleAuthUser(credential);
             if (data.success) {
                 login(data.user, data.token);
                 toast.success("Account connected with Google!");
@@ -117,7 +145,7 @@ function Register() {
                         <GoogleAuthButton
                             onAuthSuccess={handleGoogleSuccess}
                             disabled={loading || googleLoading}
-                            text={googleLoading ? "Connecting..." : "Sign up with Google"}
+                            text="signup_with"
                         />
                     </div>
 
@@ -183,12 +211,39 @@ function Register() {
                             }
                         />
 
+                        <AuthInput
+                            id="register-confirm-password"
+                            label="Confirm Password"
+                            icon={Lock}
+                            type={showConfirmPassword ? "text" : "password"}
+                            name="confirmPassword"
+                            value={form.confirmPassword}
+                            onChange={handleChange}
+                            placeholder="Re-enter your password"
+                            required
+                            autoComplete="new-password"
+                            rightElement={
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition focus:outline-none"
+                                    aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                                >
+                                    {showConfirmPassword ? (
+                                        <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                        <Eye className="w-4 h-4" />
+                                    )}
+                                </button>
+                            }
+                        />
+
                         <button
                             type="submit"
                             disabled={loading || googleLoading}
                             className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? (
+                            {loading || googleLoading ? (
                                 <div className="spinner"></div>
                             ) : (
                                 <>

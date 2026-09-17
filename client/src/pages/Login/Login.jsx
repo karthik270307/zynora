@@ -53,10 +53,10 @@ function Login() {
         }
     };
 
-    const handleGoogleSuccess = async (idToken) => {
+    const handleGoogleSuccess = async (credential) => {
         setGoogleLoading(true);
         try {
-            const data = await googleAuthUser(idToken);
+            const data = await googleAuthUser(credential);
             if (data.success) {
                 login(data.user, data.token);
                 toast.success(`Signed in as ${data.user.email}`);
@@ -67,7 +67,7 @@ function Login() {
         } catch (error) {
             toast.error(
                 error.response?.data?.message ||
-                "Google Sign-In is currently unavailable. Please try again or use email login."
+                "Google Sign-In is currently unavailable. Please try again."
             );
         } finally {
             setGoogleLoading(false);
@@ -116,7 +116,7 @@ function Login() {
                         <GoogleAuthButton
                             onAuthSuccess={handleGoogleSuccess}
                             disabled={loading || googleLoading}
-                            text={googleLoading ? "Signing in..." : "Continue with Google"}
+                            text="signin_with"
                         />
                     </div>
 
@@ -174,7 +174,7 @@ function Login() {
                             disabled={loading || googleLoading}
                             className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? (
+                            {loading || googleLoading ? (
                                 <div className="spinner"></div>
                             ) : (
                                 <>

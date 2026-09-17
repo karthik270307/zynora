@@ -55,9 +55,10 @@ ${data.language}
 Generate the following:
 
 1. A powerful marketing headline
-2. An engaging social media caption
-3. Relevant hashtags
-4. A strong call-to-action
+2. A compelling subheadline / secondary value hook
+3. An engaging social media caption & body copy (adCopy)
+4. Relevant hashtags
+5. A strong call-to-action (cta)
 
 
 Return ONLY valid JSON.
@@ -69,7 +70,9 @@ The JSON format must be:
 
 {
     "headline": "string",
+    "subheadline": "string",
     "caption": "string",
+    "adCopy": "string",
     "hashtags": ["string", "string", "string"],
     "cta": "string"
 }

@@ -8,6 +8,7 @@ const {
     register,
     login,
     googleLogin,
+    getMe,
     getProfile,
     updateProfile,
     changePassword,
@@ -27,6 +28,12 @@ router.post(
 router.post(
     "/google",
     googleLogin
+);
+
+router.get(
+    "/me",
+    authMiddleware,
+    getMe
 );
 
 router.get(
