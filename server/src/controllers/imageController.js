@@ -5,13 +5,17 @@ const brandModel = require("../models/brandModel");
 exports.generateImage = async (req, res) => {
     try {
         let payload = { ...req.body };
-        if (req.body.brandId) {
-            const brand = await brandModel.getBrandById(req.body.brandId, req.user.id);
-            if (brand) {
-                payload.brandName = payload.brandName || brand.brand_name;
-                payload.brandTone = payload.brandTone || brand.brand_tone;
-                payload.targetAudience = payload.targetAudience || brand.target_audience;
-                payload.description = `${payload.description || ''}\n\n[Brand Guidelines]\nTone: ${brand.brand_tone || ''}\nGuidelines: ${brand.guidelines || ''}`.trim();
+        if (req.body.brandId && req.user?.id) {
+            try {
+                const brand = await brandModel.getBrandById(req.body.brandId, req.user.id);
+                if (brand) {
+                    payload.brandName = payload.brandName || brand.brand_name;
+                    payload.brandTone = payload.brandTone || brand.brand_tone;
+                    payload.targetAudience = payload.targetAudience || brand.target_audience;
+                    payload.description = `${payload.description || ''}\n\n[Brand Guidelines]\nTone: ${brand.brand_tone || ''}\nGuidelines: ${brand.guidelines || ''}`.trim();
+                }
+            } catch (brandErr) {
+                console.warn("Could not fetch brand for image generation, proceeding without it:", brandErr.message);
             }
         }
         const result = await imageService.generateMarketingImage(payload);

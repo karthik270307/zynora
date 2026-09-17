@@ -29,7 +29,7 @@ Composition: Visually striking product focus, commercial grade aesthetics, sharp
     console.log("Gemini prompt preview:", prompt.slice(0, 150) + "...");
 
     const ai = new GoogleGenAI({ apiKey });
-    const modelName = "gemini-2.0-flash-exp";
+    const modelName = "gemini-2.5-flash";
 
     console.log(`[Gemini Image Service] Requesting image with model ${modelName}...`);
 
