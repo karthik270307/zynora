@@ -17,7 +17,9 @@ import {
     Download,
     Film,
     Clock,
-    CheckCircle2
+    CheckCircle2,
+    AlertCircle,
+    RotateCcw
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -39,6 +41,7 @@ function VideoGenerator() {
     });
 
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [videoPlan, setVideoPlan] = useState(null);
     const [rendering, setRendering] = useState(false);
     const [sceneLoading, setSceneLoading] = useState(false);
@@ -66,31 +69,36 @@ function VideoGenerator() {
             return;
         }
 
+        setError(null);
+        setLoading(true);
+        setVideoPlan(null);
+        setVideoUrl(null);
+        setSaved(false);
+        toast.loading("Scripting marketing video scenes with Gemini...", { id: "video-script" });
+
+        const payload = {
+            ...form,
+            brandId: selectedBrandId || null,
+            projectId: selectedProjectId || null
+        };
+
         try {
-            setLoading(true);
-            setVideoPlan(null);
-            setVideoUrl(null);
-            setSaved(false);
-            toast.loading("Scripting marketing video scenes with Gemini...", { id: "video-script" });
-
-            const payload = {
-                ...form,
-                brandId: selectedBrandId || null,
-                projectId: selectedProjectId || null
-            };
-
             const response = await generateVideoScript(payload);
 
             if (response && response.success && response.data) {
-                setVideoPlan(response.data);
+                setVideoPlan(response.data || null);
+                setError(null);
                 toast.success("Video storyline generated!", { id: "video-script" });
             } else {
-                throw new Error(response?.message || "Failed to generate video storyline");
+                throw new Error(response?.message || "Failed to generate script");
             }
-        } catch (error) {
-            console.error("Video generation error:", error);
-            const msg = error.response?.data?.message || error.message || "Video generation failed";
-            toast.error(msg, { id: "video-script" });
+        } catch (err) {
+            console.error("Video script generation error:", err);
+            const errorMsg = err.response?.data?.message || err.message || "Failed to generate script";
+            setError(errorMsg);
+            // Explicitly prevent the script/video data state from evaluating to undefined
+            setVideoPlan(null);
+            toast.error(errorMsg, { id: "video-script" });
         } finally {
             setLoading(false);
         }
@@ -301,32 +309,53 @@ function VideoGenerator() {
                         </div>
 
                         <div className="pt-2">
-                            {activeBrand && (activeBrand.user_role === 'VIEWER' || activeBrand.user_role === 'MARKETING_ANALYST') ? (
-                                <div className="text-center text-xs text-red-500 font-semibold p-2 border border-red-200 bg-red-50 rounded-lg">
-                                    Your role ({activeBrand.user_role.replace('_', ' ')}) does not have permission to generate video assets.
-                                </div>
-                            ) : (
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full btn-primary h-11"
-                                >
-                                    {loading ? (
-                                        <span>Scripting Video Plan...</span>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="w-4 h-4" />
-                                            <span>Generate Storyboard</span>
-                                        </>
-                                    )}
-                                </button>
-                            )}
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full btn-primary h-11"
+                            >
+                                {loading ? (
+                                    <span>Scripting Video Plan...</span>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-4 h-4" />
+                                        <span>Generate Storyboard</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </form>
                 </div>
 
                 {/* Right: Storyboard & Render Stage (7 cols) */}
                 <div className="lg:col-span-7 space-y-6">
+                    {/* Clear UI Error State */}
+                    {error && !loading && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 shadow-xs flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-red-500/20 text-red-500 shrink-0">
+                                    <AlertCircle className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-bold text-red-600 dark:text-red-400">
+                                        Failed to generate script
+                                    </h4>
+                                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                                        {error}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleGenerateVideo}
+                                className="btn-secondary text-xs px-3 py-1.5 shrink-0 flex items-center gap-1.5 text-red-600 dark:text-red-400 hover:bg-red-500/10 cursor-pointer"
+                            >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Try Again</span>
+                            </button>
+                        </div>
+                    )}
+
                     {!videoPlan && !loading && (
                         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-12 text-center shadow-xs space-y-3">
                             <div className="w-10 h-10 rounded-lg bg-[var(--surface-secondary)] text-[var(--primary)] flex items-center justify-center mx-auto">
@@ -355,53 +384,45 @@ function VideoGenerator() {
                             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-xs flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                     <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                                        {videoPlan.title || "Video Storyboard Script"}
+                                        {videoPlan?.title || "Video Storyboard Script"}
                                     </h3>
                                     <p className="text-xs text-[var(--text-secondary)]">
-                                        {videoPlan.scenes?.length || 0} Scenes • {form.platform}
+                                        {Array.isArray(videoPlan?.scenes) ? videoPlan.scenes.length : 0} Scenes • {form.platform}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {activeBrand && (activeBrand.user_role === 'VIEWER' || activeBrand.user_role === 'MARKETING_ANALYST') ? (
-                                        <span className="text-[10px] text-red-500 font-semibold mr-2">Read-only mode</span>
-                                    ) : (
-                                        <>
-                                            <button
-                                                onClick={handleGenerateSceneImages}
-                                                disabled={sceneLoading}
-                                                className="btn-secondary text-xs h-8 px-3"
-                                            >
-                                                <Sparkles className="w-3.5 h-3.5 text-[#0284c7]" />
-                                                <span>{sceneLoading ? "Rendering..." : "Render Scenes"}</span>
-                                            </button>
-                                            <button
-                                                onClick={handleRenderVideo}
-                                                disabled={rendering}
-                                                className="btn-primary text-xs h-8 px-3"
-                                            >
-                                                <Play className="w-3.5 h-3.5" />
-                                                <span>{rendering ? "Rendering MP4..." : "Render Video"}</span>
-                                            </button>
-                                        </>
-                                    )}
+                                    <button
+                                        onClick={handleGenerateSceneImages}
+                                        disabled={sceneLoading}
+                                        className="btn-secondary text-xs h-8 px-3"
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5 text-[#0284c7]" />
+                                        <span>{sceneLoading ? "Rendering..." : "Render Scenes"}</span>
+                                    </button>
+                                    <button
+                                        onClick={handleRenderVideo}
+                                        disabled={rendering}
+                                        className="btn-primary text-xs h-8 px-3"
+                                    >
+                                        <Play className="w-3.5 h-3.5" />
+                                        <span>{rendering ? "Rendering MP4..." : "Render Video"}</span>
+                                    </button>
                                 </div>
-                            </div>                             {/* Rendered MP4 Preview if available */}
+                            </div>
+
+                            {/* Rendered MP4 Preview if available */}
                             {videoUrl && (
                                 <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-xs space-y-3">
                                     <div className="flex items-center justify-between">
                                         <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase">Rendered Commercial Video</h4>
                                         <div className="flex items-center gap-3">
-                                            {activeBrand && (activeBrand.user_role === 'VIEWER' || activeBrand.user_role === 'MARKETING_ANALYST') ? (
-                                                <span className="text-[10px] text-red-500 font-semibold">Read-only</span>
-                                            ) : (
-                                                <button
-                                                    onClick={handleSave}
-                                                    disabled={saving || saved}
-                                                    className="text-xs font-bold text-[var(--primary)] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer"
-                                                >
-                                                    {saving ? "Saving..." : saved ? "Saved ✓" : "Save to Workspace"}
-                                                </button>
-                                            )}
+                                            <button
+                                                onClick={handleSave}
+                                                disabled={saving || saved}
+                                                className="text-xs font-bold text-[var(--primary)] hover:underline flex items-center gap-1 bg-transparent border-0 cursor-pointer"
+                                            >
+                                                {saving ? "Saving..." : saved ? "Saved ✓" : "Save to Workspace"}
+                                            </button>
                                             <a
                                                 href={videoUrl}
                                                 download="zynora-video.mp4"
@@ -417,35 +438,122 @@ function VideoGenerator() {
                                 </div>
                             )}
 
+                            {/* Timeline & Audio / Subtitle Cues Component */}
+                            {Array.isArray(videoPlan?.scenes) && videoPlan.scenes.length > 0 ? (
+                                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xs space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase flex items-center gap-1.5">
+                                            <Clock className="w-3.5 h-3.5 text-[var(--primary)]" />
+                                            <span>Timeline & Scene Cues</span>
+                                        </h4>
+                                        <span className="text-[11px] text-[var(--text-secondary)] font-mono">
+                                            Duration: {videoPlan?.duration || form.videoDuration || 30}s
+                                        </span>
+                                    </div>
+
+                                    {/* Timeline Grid */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                                        {videoPlan.scenes.map((scene, idx) => {
+                                            if (!scene) return null;
+                                            const startTime = scene?.startTime !== undefined ? Number(scene.startTime) : (idx * 5);
+                                            const duration = Number(scene?.duration) || 5;
+                                            const endTime = scene?.endTime !== undefined ? Number(scene.endTime) : (startTime + duration);
+
+                                            return (
+                                                <div
+                                                    key={scene?.id || idx}
+                                                    className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] space-y-1.5"
+                                                >
+                                                    <div className="flex items-center justify-between text-[11px]">
+                                                        <span className="font-bold text-[var(--primary)]">
+                                                            Scene {scene?.sceneNumber ?? (idx + 1)}
+                                                        </span>
+                                                        <span className="font-mono text-[var(--text-secondary)] font-medium">
+                                                            {startTime}s - {endTime}s
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-[11px] text-[var(--text-primary)] line-clamp-2" title={scene?.voiceoverText || scene?.voiceover}>
+                                                        💬 {scene?.voiceoverText || scene?.voiceover || scene?.visualPrompt || "Scene segment"}
+                                                    </p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Subtitle / Voiceover Map if present */}
+                                    {Array.isArray(videoPlan?.subtitles) && videoPlan.subtitles.length > 0 ? (
+                                        <div className="mt-3 pt-3 border-t border-[var(--border)] space-y-2">
+                                            <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase">
+                                                Subtitles & Timeline Sync
+                                            </span>
+                                            <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                                                {videoPlan.subtitles.map((sub, sIdx) => {
+                                                    if (!sub) return null;
+                                                    return (
+                                                        <div key={sub?.id || sIdx} className="flex items-start justify-between text-xs py-1 border-b border-[var(--border)]/50 last:border-b-0">
+                                                            <span className="font-mono text-[11px] text-[var(--primary)] font-semibold shrink-0">
+                                                                [{sub?.startTime ?? "00:00"} - {sub?.endTime ?? ""}]
+                                                            </span>
+                                                            <span className="text-[var(--text-primary)] ml-2 text-right">
+                                                                {sub?.text || sub?.content || ""}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : null}
+
                             {/* Scene Cards List */}
                             <div className="space-y-3">
-                                {Array.isArray(videoPlan.scenes) && videoPlan.scenes.map((scene, idx) => (
-                                    <div key={idx} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xs space-y-2.5">
-                                        <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
-                                            <span className="text-xs font-bold text-[var(--primary)]">
-                                                Scene {scene.sceneNumber || idx + 1} ({scene.duration || "5s"})
-                                            </span>
-                                            <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
-                                                {scene.cameraAngle || "Medium Shot"}
-                                            </span>
-                                        </div>
+                                {Array.isArray(videoPlan?.scenes) && videoPlan.scenes.length > 0 ? (
+                                    videoPlan.scenes.map((scene, idx) => {
+                                        if (!scene) return null;
 
-                                        <div className="text-xs space-y-1">
-                                            <p className="text-[var(--text-primary)]">
-                                                <strong className="text-[var(--text-secondary)]">Visual:</strong> {scene.visualPrompt || scene.description}
-                                            </p>
-                                            <p className="text-[var(--text-primary)]">
-                                                <strong className="text-[var(--text-secondary)]">Voiceover:</strong> "{scene.voiceoverText || scene.voiceover}"
-                                            </p>
-                                        </div>
+                                        const startTime = scene?.startTime !== undefined ? Number(scene.startTime) : (idx * 5);
+                                        const duration = Number(scene?.duration) || 5;
+                                        const endTime = scene?.endTime !== undefined ? Number(scene.endTime) : (startTime + duration);
 
-                                        {scene.imageUrl && (
-                                            <div className="pt-2">
-                                                <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="h-32 w-full object-cover rounded-lg border border-[var(--border)]" />
+                                        return (
+                                            <div key={scene?.id || idx} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xs space-y-2.5">
+                                                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-bold text-[var(--primary)]">
+                                                            Scene {scene?.sceneNumber || idx + 1}
+                                                        </span>
+                                                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[var(--surface-secondary)] text-[var(--text-secondary)]">
+                                                            {startTime}s - {endTime}s ({duration}s)
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
+                                                        {scene?.cameraAngle || "Medium Shot"}
+                                                    </span>
+                                                </div>
+
+                                                <div className="text-xs space-y-1">
+                                                    <p className="text-[var(--text-primary)]">
+                                                        <strong className="text-[var(--text-secondary)]">Visual:</strong> {scene?.visualPrompt || scene?.visual || scene?.description || "Scene Visual"}
+                                                    </p>
+                                                    <p className="text-[var(--text-primary)]">
+                                                        <strong className="text-[var(--text-secondary)]">Voiceover:</strong> "{scene?.voiceoverText || scene?.voiceover || scene?.text || ""}"
+                                                    </p>
+                                                </div>
+
+                                                {scene?.imageUrl && (
+                                                    <div className="pt-2">
+                                                        <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="h-32 w-full object-cover rounded-lg border border-[var(--border)]" />
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        );
+                                    })
+                                ) : (
+                                    <div className="p-6 rounded-xl border border-[var(--border)] text-center text-xs text-[var(--text-secondary)]">
+                                        No scenes available. Generate a storyboard script above.
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
                     )}

@@ -19,6 +19,8 @@ import toast from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
 import { useBrand } from "../../context/BrandContext";
 
+import api from "../../services/api";
+
 function Dashboard() {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -63,26 +65,28 @@ function Dashboard() {
             setLoading(true);
             setError("");
             
-            const token = localStorage.getItem("zynora_token");
-            const headers = { Authorization: `Bearer ${token}` };
-            
-            const [creativeRes, projRes, brandRes] = await Promise.all([
+            const [creativeSettled, projSettled, brandSettled] = await Promise.allSettled([
                 getDashboardData(),
-                axios.get(`${import.meta.env.VITE_API_URL}/api/projects`, { headers }),
-                axios.get(`${import.meta.env.VITE_API_URL}/api/brands`, { headers })
+                api.get("/api/projects"),
+                api.get("/api/brands")
             ]);
             
-            if (creativeRes.success) {
-                setCreatives(creativeRes.data || []);
-            } else {
-                setError(creativeRes.message || "Failed to load dashboard.");
+            if (creativeSettled.status === "fulfilled" && creativeSettled.value?.success) {
+                setCreatives(creativeSettled.value.data || []);
+            } else if (creativeSettled.status === "rejected") {
+                console.warn("Creatives load notice:", creativeSettled.reason?.message);
             }
             
-            if (projRes.data.success) {
-                setProjects(projRes.data.projects || []);
+            if (projSettled.status === "fulfilled" && projSettled.value?.data?.success) {
+                setProjects(projSettled.value.data.projects || []);
+            } else if (projSettled.status === "rejected") {
+                console.warn("Projects load notice:", projSettled.reason?.message);
             }
-            if (brandRes.data.success) {
-                setBrands(brandRes.data.brands || []);
+
+            if (brandSettled.status === "fulfilled" && brandSettled.value?.data?.success) {
+                setBrands(brandSettled.value.data.brands || []);
+            } else if (brandSettled.status === "rejected") {
+                console.warn("Brands load notice:", brandSettled.reason?.message);
             }
         } catch (err) {
             console.error("Dashboard load error:", err);

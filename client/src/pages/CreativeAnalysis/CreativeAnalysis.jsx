@@ -15,7 +15,10 @@ import {
     Lightbulb,
     AlertCircle,
     Info,
-    TrendingUp
+    TrendingUp,
+    ShieldCheck,
+    AlertTriangle,
+    ShieldAlert
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -333,7 +336,7 @@ function CreativeAnalysis() {
                                         <p className="text-xs text-[var(--text-secondary)]">Psychological Impact Rating</p>
                                     </div>
                                     <div className="flex items-baseline gap-1 bg-[var(--success)]/10 text-[var(--success)] border border-[var(--success)]/20 px-3 py-1 rounded-full">
-                                        <span className="text-xl font-extrabold">{analysis.creative_score || 85}</span>
+                                        <span className="text-xl font-extrabold">{analysis.overallScore || analysis.creative_score || 85}</span>
                                         <span className="text-xs font-normal">/ 100</span>
                                     </div>
                                 </div>
@@ -341,22 +344,121 @@ function CreativeAnalysis() {
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs">
                                     <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border)]">
                                         <span className="text-[10px] text-[var(--text-muted)] font-semibold block">READABILITY</span>
-                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.readability_score || 88}%</span>
+                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.readability || analysis.readability_score || 88}%</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border)]">
                                         <span className="text-[10px] text-[var(--text-muted)] font-semibold block">CTA STRENGTH</span>
-                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.cta_strength_score || 84}%</span>
+                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.ctaStrength || analysis.cta_strength_score || 84}%</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border)]">
                                         <span className="text-[10px] text-[var(--text-muted)] font-semibold block">BRAND HARMONY</span>
-                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.brand_consistency_score || 90}%</span>
+                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.brandConsistency || analysis.brand_consistency_score || 90}%</span>
                                     </div>
                                     <div className="p-3 rounded-lg bg-[var(--surface-secondary)] border border-[var(--border)]">
                                         <span className="text-[10px] text-[var(--text-muted)] font-semibold block">EMOTIONAL PULL</span>
-                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.emotional_appeal_score || 82}%</span>
+                                        <span className="text-base font-extrabold text-[var(--text-primary)] mt-1 block">{analysis.emotionalAppeal || analysis.emotional_appeal_score || 82}%</span>
                                     </div>
                                 </div>
                             </div>
+
+                            {/* ASCI REGULATORY COMPLIANCE AUDIT CARD */}
+                            {(() => {
+                                const asci = analysis.asciCompliance || analysis.asci_compliance;
+                                if (!asci) return null;
+
+                                const isPassing = asci.score >= 80;
+                                const isWarning = asci.score >= 50 && asci.score < 80;
+
+                                return (
+                                    <div className={`rounded-xl border p-6 shadow-xs space-y-5 bg-[var(--surface)] ${
+                                        !isPassing 
+                                            ? "border-rose-500/30 bg-gradient-to-br from-rose-500/5 via-[var(--surface)] to-transparent" 
+                                            : "border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 via-[var(--surface)] to-transparent"
+                                    }`}>
+                                        {/* Header */}
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className={`p-2 rounded-lg ${
+                                                    isPassing 
+                                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                                                        : isWarning 
+                                                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                                                        : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                                                }`}>
+                                                    <ShieldCheck className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-sm font-extrabold text-[var(--text-primary)] flex items-center gap-2">
+                                                        ASCI Regulatory Compliance Audit
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-500/10 font-bold text-[var(--text-secondary)] border border-[var(--border)]">
+                                                            Chapter I & IV
+                                                        </span>
+                                                    </h3>
+                                                    <p className="text-xs text-[var(--text-secondary)]">
+                                                        Advertising Standards Council of India legal scrutiny
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                {asci.disclaimerRequired ? (
+                                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                                                        <AlertTriangle className="w-3.5 h-3.5" /> Disclaimer Required
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                                                        <CheckCircle2 className="w-3.5 h-3.5" /> Self-Regulation Cleared
+                                                    </span>
+                                                )}
+                                                <div className={`px-3 py-1 rounded-full text-xs font-black border ${
+                                                    isPassing 
+                                                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" 
+                                                        : isWarning 
+                                                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30" 
+                                                        : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                                }`}>
+                                                    ASCI Score: {asci.score}/100
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Flagged Claims */}
+                                        {Array.isArray(asci.flaggedClaims) && asci.flaggedClaims.length > 0 && (
+                                            <div className="space-y-2 p-3.5 rounded-lg bg-rose-500/5 border border-rose-500/20">
+                                                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                                                    <AlertCircle className="w-4 h-4" />
+                                                    Flagged Superlative & High-Risk Claims:
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                    {asci.flaggedClaims.map((claim, idx) => (
+                                                        <span key={idx} className="px-2.5 py-1 rounded-md text-xs font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/25">
+                                                            ⚠️ {claim}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Recommendations & Remediation */}
+                                        {Array.isArray(asci.recommendations) && asci.recommendations.length > 0 && (
+                                            <div className="space-y-2">
+                                                <h4 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                                                    <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                                                    Legal Remediation & Disclaimer Guidance
+                                                </h4>
+                                                <div className="space-y-1.5 text-xs">
+                                                    {asci.recommendations.map((rec, idx) => (
+                                                        <div key={idx} className="p-3 bg-[var(--surface-secondary)] border border-[var(--border)] rounded-lg text-[var(--text-secondary)] flex items-start gap-2">
+                                                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                                                            <span>{rec}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                             {/* Key Suggestions */}
                             {analysis.recommendations && analysis.recommendations.length > 0 && (

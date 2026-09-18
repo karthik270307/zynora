@@ -12,6 +12,14 @@ import {
     CREATIVE_ANGLE_OPTIONS
 } from "../../constants/creativeOptions";
 import {
+    INDIAN_REGIONS,
+    INDIAN_TIERS,
+    INDIAN_FESTIVAL_OCCASIONS,
+    CODE_MIX_LANGUAGES,
+    CULTURAL_ELEMENTS,
+    OFFER_TRUST_MECHANICS
+} from "../../constants/indianMarket";
+import {
     Sparkles,
     Copy,
     Check,
@@ -29,7 +37,14 @@ import {
     ArrowRight,
     Target,
     Eye,
-    Compass
+    Compass,
+    Languages,
+    MapPin,
+    Calendar,
+    ShieldCheck,
+    SlidersHorizontal,
+    ChevronDown,
+    ChevronUp
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -55,6 +70,19 @@ function CreativeStudio() {
         language: "English"
     });
 
+    // Indian Cultural & Festive Intelligence State
+    const [indianCulture, setIndianCulture] = useState({
+        enabled: true,
+        region: "Pan-India",
+        tier: "Metro / Tier 1",
+        festivalOccasion: "Diwali (Festival of Lights)",
+        culturalElements: ["festive_diyas", "sweets_mithai"],
+        outputLanguage: "Hinglish (Hindi + English)",
+        codeMixRatio: 45,
+        offerTrustMechanic: "Cash on Delivery (COD)"
+    });
+    const [showCulturePanel, setShowCulturePanel] = useState(true);
+
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [copiedIndex, setCopiedIndex] = useState(null);
@@ -73,6 +101,23 @@ function CreativeStudio() {
         });
     };
 
+    const handleCultureChange = (field, value) => {
+        setIndianCulture(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    const toggleCulturalElement = (elementId) => {
+        setIndianCulture(prev => {
+            const exists = prev.culturalElements.includes(elementId);
+            const updated = exists 
+                ? prev.culturalElements.filter(id => id !== elementId)
+                : [...prev.culturalElements, elementId];
+            return { ...prev, culturalElements: updated };
+        });
+    };
+
     const handleGenerate = async (e) => {
         e?.preventDefault();
 
@@ -84,7 +129,27 @@ function CreativeStudio() {
         try {
             setLoading(true);
             setResult(null);
-            toast.loading("Generating marketing angles & ad copy variants...", { id: "generate" });
+            toast.loading(
+                indianCulture.enabled 
+                    ? `Generating localized ${indianCulture.outputLanguage} creatives for ${indianCulture.festivalOccasion}...`
+                    : "Generating marketing angles & ad copy variants...", 
+                { id: "generate" }
+            );
+
+            // Resolve cultural element labels
+            const selectedElementLabels = CULTURAL_ELEMENTS
+                .filter(el => indianCulture.culturalElements.includes(el.id))
+                .map(el => el.label);
+
+            const culturePayload = indianCulture.enabled ? {
+                region: indianCulture.region,
+                tier: indianCulture.tier,
+                festivalOccasion: indianCulture.festivalOccasion,
+                culturalElements: selectedElementLabels.length > 0 ? selectedElementLabels : ["Contemporary Indian Street Scene"],
+                outputLanguage: indianCulture.outputLanguage,
+                codeMixRatio: indianCulture.codeMixRatio,
+                offerTrustMechanic: indianCulture.offerTrustMechanic
+            } : null;
 
             const payload = {
                 brandName: form.brandName,
@@ -97,8 +162,16 @@ function CreativeStudio() {
                 platform: form.platform,
                 brandTone: form.brandTone,
                 keyBenefit: form.keyBenefit,
-                offerDetails: form.offerDetails,
-                language: form.language,
+                offerDetails: form.offerDetails || indianCulture.offerTrustMechanic,
+                language: indianCulture.enabled ? indianCulture.outputLanguage : form.language,
+                cultureProfile: culturePayload,
+                region: indianCulture.region,
+                tier: indianCulture.tier,
+                festivalOccasion: indianCulture.festivalOccasion,
+                outputLanguage: indianCulture.outputLanguage,
+                codeMixRatio: indianCulture.codeMixRatio,
+                culturalElements: selectedElementLabels,
+                offerTrustMechanic: indianCulture.offerTrustMechanic,
                 brandId: selectedBrandId || null,
                 projectId: selectedProjectId || null
             };
@@ -106,7 +179,12 @@ function CreativeStudio() {
             const res = await generateCreativeBrief(payload);
             if (res.success) {
                 setResult(res.data);
-                toast.success("Marketing copy generated successfully!", { id: "generate" });
+                toast.success(
+                    indianCulture.enabled 
+                        ? `Localized ${indianCulture.outputLanguage} creative generated!`
+                        : "Marketing copy generated successfully!", 
+                    { id: "generate" }
+                );
             } else {
                 toast.error(res.message || "Failed to generate copy", { id: "generate" });
             }
@@ -117,6 +195,7 @@ function CreativeStudio() {
             setLoading(false);
         }
     };
+
 
     const handleSave = async (creativeIndex) => {
         if (!result) return;
@@ -344,6 +423,193 @@ function CreativeStudio() {
                             </div>
                         </div>
 
+                        {/* Indian Market & Cultural Intelligence Accordion */}
+                        <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-[var(--surface)] to-orange-500/5 p-4 space-y-4">
+                            <div 
+                                onClick={() => setShowCulturePanel(!showCulturePanel)}
+                                className="flex items-center justify-between cursor-pointer select-none"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="text-base">🇮🇳</span>
+                                    <div>
+                                        <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                                            Indian Market & Cultural Intelligence
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold border border-amber-500/30">
+                                                Hyper-Localized
+                                            </span>
+                                        </h3>
+                                        <p className="text-[11px] text-[var(--text-secondary)]">
+                                            Vernacular code-mixing, festive hooks & trust mechanics
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label 
+                                        className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-secondary)] cursor-pointer"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={indianCulture.enabled}
+                                            onChange={(e) => handleCultureChange("enabled", e.target.checked)}
+                                            className="rounded border-[var(--border)] text-amber-600 focus:ring-amber-500"
+                                        />
+                                        Active
+                                    </label>
+                                    {showCulturePanel ? <ChevronUp className="w-4 h-4 text-[var(--text-secondary)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-secondary)]" />}
+                                </div>
+                            </div>
+
+                            {showCulturePanel && indianCulture.enabled && (
+                                <div className="space-y-3.5 pt-2 border-t border-amber-500/20">
+                                    {/* Region & Tier */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1">
+                                                <MapPin className="w-3 h-3 text-amber-500" /> Target Region
+                                            </label>
+                                            <select
+                                                value={indianCulture.region}
+                                                onChange={(e) => handleCultureChange("region", e.target.value)}
+                                                className="input-clean text-xs"
+                                            >
+                                                {INDIAN_REGIONS.map((r) => (
+                                                    <option key={r.value} value={r.value}>
+                                                        {r.icon} {r.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1">
+                                                <Target className="w-3 h-3 text-amber-500" /> Consumer Tier
+                                            </label>
+                                            <select
+                                                value={indianCulture.tier}
+                                                onChange={(e) => handleCultureChange("tier", e.target.value)}
+                                                className="input-clean text-xs"
+                                            >
+                                                {INDIAN_TIERS.map((t) => (
+                                                    <option key={t.value} value={t.value}>
+                                                        {t.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Festival / Occasion & Code-Mix Language */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1">
+                                                <Calendar className="w-3 h-3 text-amber-500" /> Festival / Occasion
+                                            </label>
+                                            <select
+                                                value={indianCulture.festivalOccasion}
+                                                onChange={(e) => handleCultureChange("festivalOccasion", e.target.value)}
+                                                className="input-clean text-xs"
+                                            >
+                                                {INDIAN_FESTIVAL_OCCASIONS.map((f) => (
+                                                    <option key={f.value} value={f.value}>
+                                                        {f.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1">
+                                                <Languages className="w-3 h-3 text-amber-500" /> Output Language & Dialect
+                                            </label>
+                                            <select
+                                                value={indianCulture.outputLanguage}
+                                                onChange={(e) => handleCultureChange("outputLanguage", e.target.value)}
+                                                className="input-clean text-xs"
+                                            >
+                                                {CODE_MIX_LANGUAGES.map((l) => (
+                                                    <option key={l.value} value={l.value}>
+                                                        {l.label} ({l.badge})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Code-Mix Vernacular Slider */}
+                                    <div className="space-y-1.5 bg-[var(--surface)] p-3 rounded-lg border border-[var(--border)]">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="font-semibold text-[var(--text-primary)] flex items-center gap-1">
+                                                <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" /> Code-Mix Intensity:
+                                            </span>
+                                            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold text-[11px]">
+                                                {indianCulture.codeMixRatio}% {indianCulture.codeMixRatio === 0 ? "(Pure English)" : indianCulture.codeMixRatio < 50 ? "(Subtle Hooks)" : indianCulture.codeMixRatio < 80 ? "(Balanced Code-Mix)" : "(Heavy Vernacular)"}
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value={indianCulture.codeMixRatio}
+                                            onChange={(e) => handleCultureChange("codeMixRatio", Number(e.target.value))}
+                                            className="w-full h-1.5 bg-[var(--surface-secondary)] rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                        />
+                                        <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
+                                            <span>0% Formal English</span>
+                                            <span>50% Colloquial Blend</span>
+                                            <span>100% Street Slang</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Offer Trust Mechanic */}
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-[var(--text-secondary)] flex items-center gap-1">
+                                            <ShieldCheck className="w-3 h-3 text-amber-500" /> Offer Trust Mechanic
+                                        </label>
+                                        <select
+                                            value={indianCulture.offerTrustMechanic}
+                                            onChange={(e) => handleCultureChange("offerTrustMechanic", e.target.value)}
+                                            className="input-clean text-xs"
+                                        >
+                                            {OFFER_TRUST_MECHANICS.map((m) => (
+                                                <option key={m.value} value={m.value}>
+                                                    {m.label} ({m.badge})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Cultural Staging Elements */}
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-semibold text-[var(--text-secondary)] block">
+                                            Authentic Cultural Staging Elements (Multi-select)
+                                        </label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {CULTURAL_ELEMENTS.map((el) => {
+                                                const selected = indianCulture.culturalElements.includes(el.id);
+                                                return (
+                                                    <button
+                                                        key={el.id}
+                                                        type="button"
+                                                        onClick={() => toggleCulturalElement(el.id)}
+                                                        className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                                                            selected 
+                                                                ? "bg-amber-500 text-white border-amber-600 font-semibold shadow-xs" 
+                                                                : "bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:border-amber-500/50"
+                                                        }`}
+                                                    >
+                                                        {selected ? "✓ " : "+ "}
+                                                        {el.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="pt-2">
                             {activeBrand && (activeBrand.user_role === 'VIEWER' || activeBrand.user_role === 'MARKETING_ANALYST') ? (
                                 <div className="text-center text-xs text-red-500 font-semibold p-2 border border-red-200 bg-red-50 rounded-lg">
@@ -395,6 +661,27 @@ function CreativeStudio() {
 
                     {result && (
                         <div className="space-y-6 animate-scale-up">
+                            {/* Cultural Intelligence Output Badge Bar */}
+                            {indianCulture.enabled && (
+                                <div className="flex flex-wrap items-center gap-2 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-transparent p-3 rounded-xl border border-amber-500/30 text-xs">
+                                    <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                        🇮🇳 Localized Brief:
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] border border-[var(--border)] font-semibold text-[var(--text-primary)]">
+                                        {indianCulture.region} ({indianCulture.tier})
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] border border-[var(--border)] font-semibold text-[var(--text-primary)]">
+                                        ✨ {indianCulture.festivalOccasion}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] border border-[var(--border)] font-semibold text-[var(--text-primary)]">
+                                        🗣️ {indianCulture.outputLanguage} ({indianCulture.codeMixRatio}%)
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] border border-[var(--border)] font-semibold text-emerald-600 dark:text-emerald-400">
+                                        🛡️ {indianCulture.offerTrustMechanic}
+                                    </span>
+                                </div>
+                            )}
+
                             {/* Save Actions */}
                             <div className="flex items-center justify-between bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xs">
                                 <span className="text-xs text-[var(--text-secondary)]">
