@@ -12,10 +12,9 @@ const videoRendererService =
 const brandModel = require("../models/brandModel");
 
 exports.generateVideoScript = async (req, res) => {
-
     try {
         let payload = { ...req.body };
-        if (req.body.brandId) {
+        if (req.body.brandId && req.user?.id) {
             const brand = await brandModel.getBrandById(req.body.brandId, req.user.id);
             if (brand) {
                 payload.brandName = payload.brandName || brand.brand_name;
@@ -23,54 +22,56 @@ exports.generateVideoScript = async (req, res) => {
             }
         }
 
-        const result =
-            await videoService.generateVideoScript(
-                payload
-            );
+        const result = await videoService.generateVideoScript(payload);
 
-
-        const cleanedResult =
-            result
+        let videoPlan;
+        if (typeof result === "object" && result !== null) {
+            videoPlan = result;
+        } else {
+            const cleanedResult = String(result)
                 .replace(/```json/g, "")
                 .replace(/```/g, "")
                 .trim();
+            const jsonMatch = cleanedResult.match(/\{[\s\S]*\}/);
+            videoPlan = JSON.parse(jsonMatch ? jsonMatch[0] : cleanedResult);
+        }
 
+        // Ensure scenes have structured timestamps and fallbacks
+        if (Array.isArray(videoPlan?.scenes)) {
+            let currentTimeline = 0;
+            videoPlan.scenes = videoPlan.scenes.map((scene, idx) => {
+                const duration = Number(scene?.duration) || 5;
+                const startTime = scene?.startTime !== undefined ? Number(scene.startTime) : currentTimeline;
+                const endTime = scene?.endTime !== undefined ? Number(scene.endTime) : (currentTimeline + duration);
+                currentTimeline += duration;
 
-        const videoPlan =
-            JSON.parse(cleanedResult);
+                return {
+                    ...scene,
+                    sceneNumber: scene?.sceneNumber || scene?.scene || idx + 1,
+                    duration,
+                    startTime,
+                    endTime,
+                    visualPrompt: scene?.visualPrompt || scene?.visual || scene?.description || "Visual scene description",
+                    voiceoverText: scene?.voiceoverText || scene?.voiceover || scene?.text || ""
+                };
+            });
+        }
 
-
-        res.status(200).json({
-
+        return res.status(200).json({
             success: true,
-
             data: videoPlan
-
         });
-
 
     } catch (error) {
+        // Backend Diagnostics: Log the raw error to server console to expose cause of failure
+        console.error(error);
 
-        console.error(
-            "Video generation error:",
-            error
-        );
-
-
-        res.status(500).json({
-
+        return res.status(500).json({
             success: false,
-
-            message:
-                "Video script generation failed",
-
-            error:
-                error.message
-
+            message: "Video script generation failed",
+            error: error.message
         });
-
     }
-
 };
 
 

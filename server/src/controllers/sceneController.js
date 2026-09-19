@@ -32,41 +32,23 @@ exports.generateSceneImages = async (
 
         const generatedScenes = [];
 
-
-        for (
-            let i = 0;
-            i < scenes.length;
-            i++
-        ) {
-
-            const scene =
-                scenes[i];
-
-
-            console.log(
-                `Generating video clip for scene ${i + 1}...`
-            );
-
-            const imagePath =
-                await sceneImageService.generateSceneVideo(
-                    scene,
-                    i + 1
-                );
+        for (let i = 0; i < scenes.length; i++) {
+            const scene = scenes[i];
+            console.log(`Generating video clip for scene ${i + 1}...`);
+            const result = await sceneImageService.generateSceneVideo(scene, i + 1);
 
             generatedScenes.push({
                 ...scene,
-                imagePath
+                imagePath: result.imagePath || result.filePath,
+                imageUrl: result.imageUrl || result.videoUrl,
+                videoPath: result.videoPath || result.filePath,
+                videoUrl: result.videoUrl
             });
-
         }
 
-
         res.status(200).json({
-
             success: true,
-
             scenes: generatedScenes
-
         });
 
 
