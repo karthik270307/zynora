@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import html2canvas from "html2canvas";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
@@ -17,7 +17,13 @@ import {
     BarChart3,
     TrendingUp,
     Check,
-    Layers
+    Layers,
+    Upload,
+    Trash2,
+    RefreshCw,
+    AlertCircle,
+    X,
+    Image as ImageIcon
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -35,6 +41,7 @@ function PosterGenerator() {
     const [saveModalOpen, setSaveModalOpen] = useState(false);
     const [creativeToSave, setCreativeToSave] = useState(null);
     const posterRef = useRef(null);
+    const fileInputRef = useRef(null);
 
     const [form, setForm] = useState({
         brandName: "",
@@ -57,7 +64,12 @@ function PosterGenerator() {
     const [result, setResult] = useState(null);
     const [downloading, setDownloading] = useState(false);
     const [productImage, setProductImage] = useState(null);
+    const [originalImage, setOriginalImage] = useState(null);
+    const [transparentImage, setTransparentImage] = useState(null);
+    const [fileName, setFileName] = useState("");
+    const [isBgRemoved, setIsBgRemoved] = useState(false);
     const [removingBackground, setRemovingBackground] = useState(false);
+    const [showPhotoModal, setShowPhotoModal] = useState(false);
     const [analysis, setAnalysis] = useState(null);
     const [analyzing, setAnalyzing] = useState(false);
     const [prediction, setPrediction] = useState(null);
@@ -71,6 +83,12 @@ function PosterGenerator() {
     };
 
     const handleGenerate = async () => {
+        // Enforce product photo requirement with centered popup
+        if (!productImage) {
+            setShowPhotoModal(true);
+            return;
+        }
+
         if (!form.productName.trim() && !form.brandName.trim()) {
             toast.error("Please enter a Brand or Product name.");
             return;
@@ -82,8 +100,8 @@ function PosterGenerator() {
             setAnalysis(null);
             setPrediction(null);
 
-            const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/ai/poster/generate`,
+            const response = await api.post(
+                "/api/ai/poster/generate",
                 form
             );
 
@@ -101,21 +119,62 @@ function PosterGenerator() {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        // Immediately set product image preview so user can proceed without being blocked
+        const rawUrl = URL.createObjectURL(file);
+        setProductImage(rawUrl);
+        setOriginalImage(rawUrl);
+        setFileName(file.name);
+        setIsBgRemoved(false);
+        setTransparentImage(null);
+        toast.success("Product photo uploaded!");
+
+        // Asynchronously attempt background isolation with 15s timeout
         try {
             setRemovingBackground(true);
-            toast.loading("Removing product background with AI...", { id: "bg-rem" });
-
             const { removeBackground } = await import("@imgly/background-removal");
-            const transparentBlob = await removeBackground(file);
+
+            const bgPromise = removeBackground(file);
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Timeout")), 15000)
+            );
+
+            const transparentBlob = await Promise.race([bgPromise, timeoutPromise]);
             const transparentUrl = URL.createObjectURL(transparentBlob);
 
+            setTransparentImage(transparentUrl);
             setProductImage(transparentUrl);
-            toast.success("Product background removed!", { id: "bg-rem" });
+            setIsBgRemoved(true);
+            toast.success("Product background isolated!", { id: "bg-rem" });
         } catch (error) {
-            console.error("Background removal error:", error);
-            toast.error("Unable to remove background", { id: "bg-rem" });
+            console.warn("Background removal notice:", error);
+            // Non-fatal: original photo is already active and usable
         } finally {
             setRemovingBackground(false);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        setProductImage(null);
+        setOriginalImage(null);
+        setTransparentImage(null);
+        setFileName("");
+        setIsBgRemoved(false);
+        setRemovingBackground(false);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+        toast.success("Product image removed");
+    };
+
+    const handleToggleBg = () => {
+        if (isBgRemoved && originalImage) {
+            setProductImage(originalImage);
+            setIsBgRemoved(false);
+            toast.success("Switched to original photo");
+        } else if (!isBgRemoved && transparentImage) {
+            setProductImage(transparentImage);
+            setIsBgRemoved(true);
+            toast.success("Switched to isolated background");
         }
     };
 
@@ -202,6 +261,39 @@ function PosterGenerator() {
         } catch (error) {
             console.error("Poster download error:", error);
             toast.error("Unable to download poster", { id: "p-down" });
+        } finally {
+            setDownloading(false);
+        }
+    };
+
+    const downloadPosterPdf = async () => {
+        if (!posterRef.current) return;
+        try {
+            setDownloading(true);
+            toast.loading("Rendering high-res poster PDF...", { id: "p-pdf" });
+
+            const canvas = await html2canvas(posterRef.current, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: "#ffffff"
+            });
+
+            const imgData = canvas.toDataURL("image/png");
+            const { jsPDF } = await import("jspdf");
+
+            const isLandscape = canvas.width > canvas.height;
+            const pdf = new jsPDF({
+                orientation: isLandscape ? "landscape" : "portrait",
+                unit: "px",
+                format: [canvas.width, canvas.height]
+            });
+
+            pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+            pdf.save(`${form.productName || "zynora"}-poster.pdf`);
+            toast.success("Poster PDF downloaded!", { id: "p-pdf" });
+        } catch (error) {
+            console.error("Poster PDF download error:", error);
+            toast.error("Unable to download poster PDF", { id: "p-pdf" });
         } finally {
             setDownloading(false);
         }
@@ -392,25 +484,93 @@ function PosterGenerator() {
                             </div>
                         </div>
 
-                        {/* Product Image Asset with AI BG Remover */}
+                        {/* Product Image Asset with AI BG Remover & Remove/Change Controls */}
                         <div className="space-y-2 pt-2 border-t border-[var(--border)]">
-                            <label className="text-xs font-semibold text-[var(--text-secondary)] block">
-                                Product Asset (Auto-isolates background)
-                            </label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                                    Product Asset *
+                                </label>
+                                <span className="text-[11px] text-[var(--text-secondary)] font-medium">
+                                    {removingBackground ? (
+                                        <span className="text-amber-500 animate-pulse flex items-center gap-1">
+                                            <RefreshCw className="w-3 h-3 animate-spin" /> Isolating BG...
+                                        </span>
+                                    ) : isBgRemoved ? (
+                                        <span className="text-[var(--success)] flex items-center gap-1">
+                                            <Check className="w-3 h-3" /> Background isolated
+                                        </span>
+                                    ) : productImage ? (
+                                        <span className="text-[var(--text-secondary)]">Original photo</span>
+                                    ) : (
+                                        <span className="text-[var(--text-muted)]">Auto-isolates BG</span>
+                                    )}
+                                </span>
+                            </div>
+
                             <input
+                                ref={fileInputRef}
                                 type="file"
                                 accept="image/*"
                                 onChange={handleProductUpload}
-                                className="block w-full text-xs text-[var(--text-secondary)] file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[var(--primary-soft)] file:text-[var(--primary)] hover:file:bg-[var(--surface-hover)]"
+                                className="hidden"
+                                id="product-photo-upload"
                             />
-                            {productImage && (
-                                <div className="flex items-center gap-3 pt-2">
-                                    <div className="w-14 h-14 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] p-1 flex items-center justify-center">
-                                        <img src={productImage} alt="Product" className="max-h-full object-contain" />
+
+                            {!productImage ? (
+                                <div
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="border-2 border-dashed border-[var(--border)] hover:border-[var(--primary)] rounded-xl p-4 text-center cursor-pointer transition-all bg-[var(--surface-secondary)] hover:bg-[var(--surface-hover)] group"
+                                >
+                                    <Upload className="w-6 h-6 mx-auto text-[var(--text-secondary)] group-hover:text-[var(--primary)] transition-colors mb-1.5" />
+                                    <p className="text-xs font-semibold text-[var(--text-primary)]">
+                                        Click to upload product photo *
+                                    </p>
+                                    <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+                                        PNG, JPG, WEBP (Required to generate poster)
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3 p-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface-secondary)]">
+                                    <div className="w-14 h-14 rounded-lg border border-[var(--border)] bg-white dark:bg-slate-900 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                                        <img src={productImage} alt="Product" className="max-h-full max-w-full object-contain" />
                                     </div>
-                                    <span className="text-xs text-[var(--success)] font-medium flex items-center gap-1">
-                                        <Check className="w-3.5 h-3.5" /> Background removed
-                                    </span>
+
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                            {fileName || "product-image.png"}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-[11px] text-[var(--primary)] hover:underline font-medium cursor-pointer"
+                                            >
+                                                Change
+                                            </button>
+                                            {transparentImage && (
+                                                <>
+                                                    <span className="text-[var(--border)]">•</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleToggleBg}
+                                                        className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium cursor-pointer"
+                                                    >
+                                                        {isBgRemoved ? "Use Original" : "Use Cutout"}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleRemoveImage}
+                                        className="p-1.5 text-[var(--text-secondary)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
+                                        title="Remove product photo"
+                                        aria-label="Remove product photo"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -418,7 +578,7 @@ function PosterGenerator() {
                         <div className="pt-2">
                             <button
                                 onClick={handleGenerate}
-                                disabled={loading || removingBackground}
+                                disabled={loading}
                                 className="w-full btn-primary h-11"
                             >
                                 {loading ? (
@@ -555,6 +715,55 @@ function PosterGenerator() {
                     )}
                 </div>
             </div>
+
+            {/* Product Photo Required Modal */}
+            {showPhotoModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-5 text-center relative animate-scale-up">
+                        <button
+                            onClick={() => setShowPhotoModal(false)}
+                            className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1 rounded-lg hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+                            aria-label="Close"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center mx-auto shadow-inner">
+                            <AlertCircle className="w-7 h-7" />
+                        </div>
+
+                        <div className="space-y-2">
+                            <h3 className="text-lg font-bold text-[var(--text-primary)]">
+                                Product Photo Required
+                            </h3>
+                            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                                Please upload a photo of your product before generating the poster. The AI uses your product image as the centerpiece of the marketing poster canvas.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowPhotoModal(false);
+                                    setTimeout(() => fileInputRef.current?.click(), 100);
+                                }}
+                                className="flex-1 btn-primary py-2.5 px-4 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 rounded-xl"
+                            >
+                                <Upload className="w-4 h-4" />
+                                <span>Upload Product Photo</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowPhotoModal(false)}
+                                className="btn-secondary py-2.5 px-4 text-xs sm:text-sm font-medium rounded-xl"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Save to Project Modal */}
             <SaveCreativeModal

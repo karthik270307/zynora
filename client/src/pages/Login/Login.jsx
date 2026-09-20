@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Mail, Lock, ArrowRight, ArrowLeft, Eye, EyeOff } from "lucide-react";
@@ -21,6 +21,13 @@ function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("expired") === "true") {
+            toast.error("Your session has expired. Please sign in again.", { id: "session-expired" });
+        }
+    }, []);
 
     const handleChange = (e) => {
         setForm({
