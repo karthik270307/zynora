@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import api from "../../services/api";
 import { getCreative, analyzeCreativeById } from "../../services/creativeService";
 import {
     ArrowLeft,
@@ -17,7 +18,11 @@ import {
     RefreshCw,
     Share2,
     Layers,
-    FileText
+    FileText,
+    Megaphone,
+    Plus,
+    X,
+    ExternalLink
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -31,6 +36,80 @@ function CreativeDetails() {
     const [error, setError] = useState("");
     const [copied, setCopied] = useState(false);
     const [copiedSection, setCopiedSection] = useState("");
+
+    // Campaign Assignment Modal state
+    const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
+    const [campaigns, setCampaigns] = useState([]);
+    const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+    const [selectedCampId, setSelectedCampId] = useState("");
+    const [isCreatingCamp, setIsCreatingCamp] = useState(false);
+    const [newCampName, setNewCampName] = useState("");
+    const [newCampObjective, setNewCampObjective] = useState("Product Launch");
+    const [savingCampaign, setSavingCampaign] = useState(false);
+
+    const handleOpenCampaignModal = async () => {
+        setSelectedCampId(creative?.campaign_id || "");
+        setIsCreatingCamp(false);
+        setNewCampName("");
+        setIsCampaignModalOpen(true);
+        try {
+            setLoadingCampaigns(true);
+            const res = await api.get('/api/campaigns');
+            if (res.data.success) {
+                setCampaigns(res.data.campaigns || []);
+            }
+        } catch (err) {
+            console.warn("Failed to load campaigns:", err);
+            toast.error("Could not load campaigns");
+        } finally {
+            setLoadingCampaigns(false);
+        }
+    };
+
+    const handleSaveCampaignAssignment = async (e) => {
+        e?.preventDefault();
+        try {
+            setSavingCampaign(true);
+            let targetCampaignId = selectedCampId;
+
+            if (isCreatingCamp) {
+                if (!newCampName.trim()) {
+                    toast.error("Campaign name is required");
+                    setSavingCampaign(false);
+                    return;
+                }
+                const campRes = await api.post('/api/campaigns', {
+                    campaign_name: newCampName.trim(),
+                    objective: newCampObjective,
+                    brand_id: creative.brand_id || null,
+                    project_id: creative.project_id || null
+                });
+                if (campRes.data?.success && campRes.data.campaign) {
+                    targetCampaignId = campRes.data.campaign.id;
+                } else {
+                    throw new Error(campRes.data?.message || "Failed to create campaign");
+                }
+            }
+
+            const updateRes = await api.put(`/api/creatives/${id}`, {
+                campaignId: targetCampaignId || null,
+                campaign_id: targetCampaignId || null
+            });
+
+            if (updateRes.data?.success && updateRes.data.data) {
+                setCreative(updateRes.data.data);
+                toast.success(targetCampaignId ? "Assigned to campaign!" : "Removed from campaign");
+                setIsCampaignModalOpen(false);
+            } else {
+                throw new Error(updateRes.data?.message || "Failed to update creative campaign");
+            }
+        } catch (err) {
+            console.error("Campaign assignment error:", err);
+            toast.error(err.response?.data?.message || err.message || "Failed to assign campaign");
+        } finally {
+            setSavingCampaign(false);
+        }
+    };
 
     const fetchCreativeDetails = async () => {
         try {
@@ -167,9 +246,26 @@ function CreativeDetails() {
                             <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[var(--primary-soft)] text-[var(--primary)] uppercase tracking-wider">
                                 {creative.platform || "Instagram"}
                             </span>
+                            {creative.campaign_name && (
+                                <button
+                                    onClick={() => navigate(`/campaigns/${creative.campaign_id}`)}
+                                    className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 hover:border-purple-500 flex items-center gap-1 transition-colors"
+                                    title="View Campaign"
+                                >
+                                    <Megaphone className="w-3 h-3" />
+                                    <span>{creative.campaign_name}</span>
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                </button>
+                            )}
                         </div>
                         <p className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-2">
                             <span>Created {formattedDate}</span>
+                            {creative.project_name && (
+                                <>
+                                    <span>•</span>
+                                    <span>Project: <strong className="text-[var(--text-primary)]">{creative.project_name}</strong></span>
+                                </>
+                            )}
                             {creative.target_audience && (
                                 <>
                                     <span>•</span>
@@ -187,6 +283,15 @@ function CreativeDetails() {
                 </div>
 
                 <div className="flex items-center gap-2.5 flex-wrap">
+                    <button
+                        onClick={handleOpenCampaignModal}
+                        className="btn-secondary text-xs h-9 px-3.5 flex items-center gap-1.5"
+                        title="Assign to campaign or change campaign"
+                    >
+                        <Megaphone className="w-3.5 h-3.5 text-purple-500" />
+                        <span>{creative.campaign_id ? "Change Campaign" : "Add to Campaign"}</span>
+                    </button>
+
                     <button
                         onClick={handleReanalyze}
                         disabled={analyzing}
@@ -492,6 +597,111 @@ function CreativeDetails() {
                     </div>
                 )}
             </div>
+
+            {/* Assign / Change Campaign Modal */}
+            {isCampaignModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-2xl p-5 space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+                            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                <Megaphone className="w-4 h-4 text-purple-500" />
+                                {creative.campaign_id ? "Change Campaign" : "Assign to Campaign"}
+                            </h3>
+                            <button 
+                                onClick={() => setIsCampaignModalOpen(false)} 
+                                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveCampaignAssignment} className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                                    Campaign Destination
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreatingCamp(!isCreatingCamp)}
+                                    className="text-xs text-[var(--primary)] font-semibold hover:underline flex items-center gap-1"
+                                >
+                                    {isCreatingCamp ? "← Pick Existing" : "+ Create New Campaign"}
+                                </button>
+                            </div>
+
+                            {isCreatingCamp ? (
+                                <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-500/5 space-y-3 animate-scale-up">
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-semibold text-[var(--text-secondary)]">Campaign Name *</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Q4 Black Friday Blitz"
+                                            value={newCampName}
+                                            onChange={(e) => setNewCampName(e.target.value)}
+                                            className="input-clean text-xs bg-[var(--surface)]"
+                                            autoFocus
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-semibold text-[var(--text-secondary)]">Objective</label>
+                                        <select
+                                            value={newCampObjective}
+                                            onChange={(e) => setNewCampObjective(e.target.value)}
+                                            className="input-clean text-xs bg-[var(--surface)]"
+                                        >
+                                            <option value="Product Launch">Product Launch</option>
+                                            <option value="Brand Awareness">Brand Awareness</option>
+                                            <option value="Lead Generation">Lead Generation</option>
+                                            <option value="Conversion / Sales">Conversion / Sales</option>
+                                            <option value="Holiday Sale">Holiday Sale</option>
+                                            <option value="Retargeting">Retargeting</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            ) : loadingCampaigns ? (
+                                <div className="text-xs text-[var(--text-secondary)] py-2">Loading campaigns...</div>
+                            ) : (
+                                <div>
+                                    <select
+                                        value={selectedCampId}
+                                        onChange={(e) => setSelectedCampId(e.target.value)}
+                                        className="input-clean text-xs bg-[var(--surface)]"
+                                    >
+                                        <option value="">-- No Campaign (Unassigned) --</option>
+                                        {campaigns.map(c => (
+                                            <option key={c.id} value={c.id}>
+                                                📢 {c.campaign_name} ({c.objective || 'Campaign'})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
+                                        Selecting "No Campaign" will detach this creative from any active campaign.
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border)]">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCampaignModalOpen(false)}
+                                    className="btn-secondary text-xs h-8 px-3"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={savingCampaign}
+                                    className="btn-primary text-xs h-8 px-4 flex items-center gap-1.5"
+                                >
+                                    {savingCampaign && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                                    <span>{isCreatingCamp ? "Create & Assign" : "Save Assignment"}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

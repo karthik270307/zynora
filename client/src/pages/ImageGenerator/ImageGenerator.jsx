@@ -22,6 +22,7 @@ function ImageGenerator() {
     const { activeBrand, brands } = useBrand();
     const [selectedBrandId, setSelectedBrandId] = useState("");
     const [selectedProjectId, setSelectedProjectId] = useState("");
+    const [selectedCampaignId, setSelectedCampaignId] = useState("");
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -118,7 +119,8 @@ function ImageGenerator() {
             creativeType: "image",
             mediaUrl: image.url || `data:image/jpeg;base64,${image.b64_json}`,
             brandId: selectedBrandId || null,
-            projectId: selectedProjectId || null
+            projectId: selectedProjectId || null,
+            campaignId: selectedCampaignId || null
         };
 
         if (selectedBrandId && selectedProjectId) {
@@ -185,6 +187,8 @@ function ImageGenerator() {
                             setSelectedBrandId={setSelectedBrandId}
                             selectedProjectId={selectedProjectId}
                             setSelectedProjectId={setSelectedProjectId}
+                            selectedCampaignId={selectedCampaignId}
+                            setSelectedCampaignId={setSelectedCampaignId}
                             form={form}
                             setForm={setForm}
                         />
@@ -423,9 +427,11 @@ function ImageGenerator() {
                 creativeData={creativeToSave}
                 initialBrandId={selectedBrandId}
                 initialProjectId={selectedProjectId}
-                onSaved={({ brandId, projectId }) => {
+                initialCampaignId={selectedCampaignId}
+                onSaved={({ brandId, projectId, campaignId }) => {
                     setSelectedBrandId(brandId);
                     setSelectedProjectId(projectId);
+                    if (campaignId) setSelectedCampaignId(campaignId);
                     setSaved(true);
                 }}
             />

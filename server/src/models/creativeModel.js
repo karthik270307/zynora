@@ -94,9 +94,11 @@ const getAllCreatives = async (userId) => {
     try {
         const result = await pool.query(
             `
-            SELECT cr.*, b.brand_name
+            SELECT cr.*, b.brand_name, c.campaign_name, p.project_name
             FROM creatives cr
             LEFT JOIN brands b ON cr.brand_id = b.id
+            LEFT JOIN campaigns c ON cr.campaign_id = c.id
+            LEFT JOIN projects p ON cr.project_id = p.id
             WHERE cr.user_id = $1
             OR cr.brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $1)
             OR cr.brand_id IN (SELECT id FROM brands WHERE user_id = $1)
@@ -123,9 +125,11 @@ const getCreativeById = async (id, userId) => {
     try {
         const result = await pool.query(
             `
-            SELECT cr.*, b.brand_name
+            SELECT cr.*, b.brand_name, c.campaign_name, p.project_name
             FROM creatives cr
             LEFT JOIN brands b ON cr.brand_id = b.id
+            LEFT JOIN campaigns c ON cr.campaign_id = c.id
+            LEFT JOIN projects p ON cr.project_id = p.id
             WHERE cr.id = $1
             AND (
                 cr.user_id = $2
@@ -145,6 +149,13 @@ const getCreativeById = async (id, userId) => {
 
 const updateCreative = async (id, userId, creative) => {
     const numericUserId = parseInt(userId, 10);
+    const hasCamp = creative.campaign_id !== undefined || creative.campaignId !== undefined;
+    const cleanCampId = hasCamp ? cleanUUID(creative.campaign_id || creative.campaignId) : null;
+    const hasProj = creative.project_id !== undefined || creative.projectId !== undefined;
+    const cleanProjId = hasProj ? cleanUUID(creative.project_id || creative.projectId) : null;
+    const hasBrand = creative.brand_id !== undefined || creative.brandId !== undefined;
+    const cleanBrandId = hasBrand ? cleanUUID(creative.brand_id || creative.brandId) : null;
+
     const query = `
         UPDATE creatives SET
             creative_score = COALESCE($1, creative_score),
@@ -152,11 +163,14 @@ const updateCreative = async (id, userId, creative) => {
             engagement_score = COALESCE($3, engagement_score),
             conversion_probability = COALESCE($4, conversion_probability),
             virality_score = COALESCE($5, virality_score),
-            analysis_data = COALESCE($6, analysis_data)
-        WHERE id = $7 AND (
-            user_id = $8
-            OR brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $8)
-            OR brand_id IN (SELECT id FROM brands WHERE user_id = $8)
+            analysis_data = COALESCE($6, analysis_data),
+            campaign_id = CASE WHEN $7::boolean THEN $8 ELSE campaign_id END,
+            project_id = CASE WHEN $9::boolean THEN $10 ELSE project_id END,
+            brand_id = CASE WHEN $11::boolean THEN $12 ELSE brand_id END
+        WHERE id = $13 AND (
+            user_id = $14
+            OR brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $14)
+            OR brand_id IN (SELECT id FROM brands WHERE user_id = $14)
         )
         RETURNING *
     `;
@@ -167,11 +181,18 @@ const updateCreative = async (id, userId, creative) => {
         creative.conversionProbability !== undefined ? creative.conversionProbability : null,
         creative.viralityScore !== undefined ? creative.viralityScore : null,
         creative.analysisData ? JSON.stringify(creative.analysisData) : null,
+        hasCamp,
+        cleanCampId,
+        hasProj,
+        cleanProjId,
+        hasBrand,
+        cleanBrandId,
         id,
         numericUserId
     ];
     const result = await pool.query(query, values);
-    return result.rows[0];
+    if (result.rows.length === 0) return null;
+    return await getCreativeById(id, numericUserId);
 };
 
 module.exports = {

@@ -28,6 +28,7 @@ function VideoGenerator() {
     const { activeBrand, brands } = useBrand();
     const [selectedBrandId, setSelectedBrandId] = useState("");
     const [selectedProjectId, setSelectedProjectId] = useState("");
+    const [selectedCampaignId, setSelectedCampaignId] = useState("");
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -176,7 +177,8 @@ function VideoGenerator() {
             creativeType: "video",
             mediaUrl: videoUrl,
             brandId: selectedBrandId || null,
-            projectId: selectedProjectId || null
+            projectId: selectedProjectId || null,
+            campaignId: selectedCampaignId || null
         };
 
         if (selectedBrandId && selectedProjectId) {
@@ -224,6 +226,8 @@ function VideoGenerator() {
                             setSelectedBrandId={setSelectedBrandId}
                             selectedProjectId={selectedProjectId}
                             setSelectedProjectId={setSelectedProjectId}
+                            selectedCampaignId={selectedCampaignId}
+                            setSelectedCampaignId={setSelectedCampaignId}
                             form={form}
                             setForm={setForm}
                         />
@@ -577,9 +581,11 @@ function VideoGenerator() {
                 creativeData={creativeToSave}
                 initialBrandId={selectedBrandId}
                 initialProjectId={selectedProjectId}
-                onSaved={({ brandId, projectId }) => {
+                initialCampaignId={selectedCampaignId}
+                onSaved={({ brandId, projectId, campaignId }) => {
                     setSelectedBrandId(brandId);
                     setSelectedProjectId(projectId);
+                    if (campaignId) setSelectedCampaignId(campaignId);
                     setSaved(true);
                 }}
             />

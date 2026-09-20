@@ -15,6 +15,10 @@ exports.createCreative = async (req, res) => {
             ? req.body.projectId.trim()
             : null;
 
+        const cleanCampaignId = (req.body.campaignId && typeof req.body.campaignId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.body.campaignId.trim()))
+            ? req.body.campaignId.trim()
+            : ((req.body.campaign_id && typeof req.body.campaign_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.body.campaign_id.trim())) ? req.body.campaign_id.trim() : null);
+
         if (cleanBrandId) {
             const brandCheck = await brandModel.getBrandById(cleanBrandId, req.user.id);
             if (!brandCheck) {
@@ -33,6 +37,7 @@ exports.createCreative = async (req, res) => {
             ...req.body,
             brandId: cleanBrandId,
             projectId: cleanProjectId,
+            campaignId: cleanCampaignId,
             userId: req.user.id
         });
 
@@ -147,7 +152,8 @@ exports.updateCreative = async (req, res) => {
         if (!creative) {
             return res.status(404).json({ success: false, message: "Creative not found or unauthorized" });
         }
-        res.status(200).json({ success: true, data: creative });
+        const fullCreative = await creativeModel.getCreativeById(id, userId);
+        res.status(200).json({ success: true, data: fullCreative || creative });
     } catch (error) {
         console.error("Update creative error:", error);
         res.status(500).json({ success: false, message: "Failed to update creative", error: error.message });

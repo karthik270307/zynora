@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Briefcase, Folder, Plus, X, Check } from 'lucide-react';
+import { Briefcase, Folder, Megaphone, Plus, X } from 'lucide-react';
 import { useBrand } from '../../context/BrandContext';
 import toast from 'react-hot-toast';
 
-function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectId, setSelectedProjectId, form, setForm }) {
+function ContextSelector({ 
+    selectedBrandId, 
+    setSelectedBrandId, 
+    selectedProjectId, 
+    setSelectedProjectId, 
+    selectedCampaignId = '', 
+    setSelectedCampaignId = () => {}, 
+    form, 
+    setForm 
+}) {
     const { brands, refreshBrands } = useBrand();
     const [localBrands, setLocalBrands] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [campaigns, setCampaigns] = useState([]);
     const [loadingBrands, setLoadingBrands] = useState(false);
     const [loadingProjects, setLoadingProjects] = useState(false);
+    const [loadingCampaigns, setLoadingCampaigns] = useState(false);
 
     // Quick inline modal states
     const [showBrandModal, setShowBrandModal] = useState(false);
@@ -21,6 +32,11 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
     const [newProjectName, setNewProjectName] = useState('');
     const [newProjectGoal, setNewProjectGoal] = useState('Product Launch');
     const [creatingProject, setCreatingProject] = useState(false);
+
+    const [showCampaignModal, setShowCampaignModal] = useState(false);
+    const [newCampaignName, setNewCampaignName] = useState('');
+    const [newCampaignObjective, setNewCampaignObjective] = useState('Product Launch');
+    const [creatingCampaign, setCreatingCampaign] = useState(false);
 
     // Synchronize parent form fields automatically on brand context changes
     useEffect(() => {
@@ -67,19 +83,19 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
     // Load projects for selected brand
     useEffect(() => {
         const fetchProjects = async () => {
-            if (!selectedBrandId) {
-                setProjects([]);
-                setSelectedProjectId('');
-                return;
-            }
             try {
                 setLoadingProjects(true);
                 const response = await api.get('/api/projects');
                 if (response.data.success) {
-                    const filtered = (response.data.projects || []).filter(p => p.brand_id === selectedBrandId);
-                    setProjects(filtered);
-                    if (!filtered.find(p => p.id === selectedProjectId)) {
-                        setSelectedProjectId(filtered.length > 0 ? filtered[0].id : '');
+                    const allProjects = response.data.projects || [];
+                    if (selectedBrandId) {
+                        const filtered = allProjects.filter(p => p.brand_id === selectedBrandId);
+                        setProjects(filtered);
+                        if (selectedProjectId && !filtered.find(p => p.id === selectedProjectId)) {
+                            setSelectedProjectId('');
+                        }
+                    } else {
+                        setProjects(allProjects);
                     }
                 }
             } catch (err) {
@@ -90,6 +106,35 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
         };
         fetchProjects();
     }, [selectedBrandId]);
+
+    // Load campaigns for selected project / brand
+    useEffect(() => {
+        const fetchCampaigns = async () => {
+            try {
+                setLoadingCampaigns(true);
+                let url = '/api/campaigns';
+                const params = new URLSearchParams();
+                if (selectedBrandId) params.append('brandId', selectedBrandId);
+                if (selectedProjectId) params.append('projectId', selectedProjectId);
+                const qs = params.toString();
+                if (qs) url += `?${qs}`;
+
+                const response = await api.get(url);
+                if (response.data.success) {
+                    const fetched = response.data.campaigns || [];
+                    setCampaigns(fetched);
+                    if (selectedCampaignId && !fetched.find(c => c.id === selectedCampaignId)) {
+                        setSelectedCampaignId('');
+                    }
+                }
+            } catch (err) {
+                console.warn("Notice: could not load campaigns list", err.message);
+            } finally {
+                setLoadingCampaigns(false);
+            }
+        };
+        fetchCampaigns();
+    }, [selectedBrandId, selectedProjectId]);
 
     const activeBrandsList = brands.length > 0 ? brands : localBrands;
 
@@ -154,43 +199,63 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
         }
     };
 
+    // Handle Quick Campaign Creation
+    const handleCreateCampaign = async (e) => {
+        e?.preventDefault();
+        if (!newCampaignName.trim()) {
+            toast.error("Campaign name is required");
+            return;
+        }
+        try {
+            setCreatingCampaign(true);
+            const response = await api.post('/api/campaigns', {
+                campaign_name: newCampaignName.trim(),
+                objective: newCampaignObjective,
+                project_id: selectedProjectId || null,
+                brand_id: selectedBrandId || null
+            });
+
+            if (response.data.success && response.data.campaign) {
+                const created = response.data.campaign;
+                setCampaigns(prev => [created, ...prev]);
+                setSelectedCampaignId(created.id);
+                toast.success(`Campaign "${created.campaign_name}" created and selected!`);
+                setShowCampaignModal(false);
+                setNewCampaignName('');
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || err.response?.data?.error || "Failed to create campaign");
+        } finally {
+            setCreatingCampaign(false);
+        }
+    };
+
     return (
         <div className="relative">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-[var(--surface-secondary)] border border-[var(--border)] rounded-xl">
-                {/* Brand Dropdown */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 bg-[var(--surface-secondary)] border border-[var(--border)] rounded-xl">
+                {/* 1. Brand Dropdown */}
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5 uppercase tracking-wider">
-                            <Briefcase className="w-3.5 h-3.5 text-[var(--primary)]" /> Brand Context
+                            <Briefcase className="w-3.5 h-3.5 text-[var(--primary)]" /> Brand
                         </label>
                         <button 
                             type="button" 
                             onClick={() => setShowBrandModal(true)} 
                             className="text-[10px] text-[var(--primary)] hover:underline flex items-center gap-0.5 font-semibold"
                         >
-                            <Plus className="w-2.5 h-2.5" /> New Brand
+                            <Plus className="w-2.5 h-2.5" /> New
                         </button>
                     </div>
                     {loadingBrands ? (
-                        <div className="text-xs text-[var(--text-secondary)] h-10 flex items-center">Loading brands...</div>
-                    ) : activeBrandsList.length === 0 ? (
-                        <div className="flex items-center justify-between h-10 bg-[var(--surface)] px-3 rounded-lg border border-[var(--border)]">
-                            <span className="text-xs text-[var(--text-muted)]">No brands available.</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowBrandModal(true)}
-                                className="text-xs text-[var(--primary)] font-bold hover:underline"
-                            >
-                                + Create
-                            </button>
-                        </div>
+                        <div className="text-xs text-[var(--text-secondary)] h-10 flex items-center">Loading...</div>
                     ) : (
                         <select
                             value={selectedBrandId}
                             onChange={(e) => setSelectedBrandId(e.target.value)}
-                            className="input-clean bg-[var(--surface)] text-sm"
+                            className="input-clean bg-[var(--surface)] text-xs h-10"
                         >
-                            <option value="">-- Standalone (No Brand) --</option>
+                            <option value="">-- No Brand (Standalone) --</option>
                             {activeBrandsList.map(b => (
                                 <option key={b.id} value={b.id}>{b.brand_name}</option>
                             ))}
@@ -198,55 +263,61 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
                     )}
                 </div>
 
-                {/* Project Dropdown */}
+                {/* 2. Project Dropdown */}
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5 uppercase tracking-wider">
-                            <Folder className="w-3.5 h-3.5 text-[var(--primary)]" /> Project Campaign
+                            <Folder className="w-3.5 h-3.5 text-[var(--primary)]" /> Project
                         </label>
                         <button 
                             type="button" 
-                            onClick={() => {
-                                setShowProjectModal(true);
-                            }} 
+                            onClick={() => setShowProjectModal(true)} 
                             className="text-[10px] text-[var(--primary)] hover:underline flex items-center gap-0.5 font-semibold"
                         >
-                            <Plus className="w-2.5 h-2.5" /> New Project
+                            <Plus className="w-2.5 h-2.5" /> New
                         </button>
                     </div>
-                    {!selectedBrandId ? (
-                        <div className="flex items-center justify-between h-10 bg-[var(--surface)] px-3 rounded-lg border border-[var(--border)]">
-                            <span className="text-xs text-[var(--text-muted)]">Standalone / No Brand selected</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowProjectModal(true)}
-                                className="text-xs text-[var(--primary)] font-bold hover:underline"
-                            >
-                                + Project
-                            </button>
-                        </div>
-                    ) : loadingProjects ? (
-                        <div className="text-xs text-[var(--text-secondary)] h-10 flex items-center">Loading projects...</div>
-                    ) : projects.length === 0 ? (
-                        <div className="flex items-center justify-between h-10 bg-[var(--surface)] px-3 rounded-lg border border-[var(--border)]">
-                            <span className="text-xs text-[var(--text-muted)]">No projects in this brand.</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowProjectModal(true)}
-                                className="text-xs text-[var(--primary)] font-bold hover:underline"
-                            >
-                                + Create
-                            </button>
-                        </div>
+                    {loadingProjects ? (
+                        <div className="text-xs text-[var(--text-secondary)] h-10 flex items-center">Loading...</div>
                     ) : (
                         <select
                             value={selectedProjectId}
                             onChange={(e) => setSelectedProjectId(e.target.value)}
-                            className="input-clean bg-[var(--surface)] text-sm"
+                            className="input-clean bg-[var(--surface)] text-xs h-10"
                         >
-                            <option value="">-- Standalone (No Project) --</option>
+                            <option value="">-- No Project (Standalone) --</option>
                             {projects.map(p => (
                                 <option key={p.id} value={p.id}>{p.project_name}</option>
+                            ))}
+                        </select>
+                    )}
+                </div>
+
+                {/* 3. Campaign Dropdown */}
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5 uppercase tracking-wider">
+                            <Megaphone className="w-3.5 h-3.5 text-[var(--primary)]" /> Campaign
+                        </label>
+                        <button 
+                            type="button" 
+                            onClick={() => setShowCampaignModal(true)} 
+                            className="text-[10px] text-[var(--primary)] hover:underline flex items-center gap-0.5 font-semibold"
+                        >
+                            <Plus className="w-2.5 h-2.5" /> New
+                        </button>
+                    </div>
+                    {loadingCampaigns ? (
+                        <div className="text-xs text-[var(--text-secondary)] h-10 flex items-center">Loading...</div>
+                    ) : (
+                        <select
+                            value={selectedCampaignId}
+                            onChange={(e) => setSelectedCampaignId(e.target.value)}
+                            className="input-clean bg-[var(--surface)] text-xs h-10"
+                        >
+                            <option value="">-- No Campaign (General) --</option>
+                            {campaigns.map(c => (
+                                <option key={c.id} value={c.id}>{c.campaign_name}</option>
                             ))}
                         </select>
                     )}
@@ -342,6 +413,59 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
                                 </button>
                                 <button type="submit" disabled={creatingProject} className="btn-primary text-xs h-8 px-3">
                                     {creatingProject ? "Creating..." : "Create & Select"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Quick Inline Campaign Modal */}
+            {showCampaignModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in">
+                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-sm shadow-2xl p-5 space-y-4">
+                        <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+                            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                <Megaphone className="w-4 h-4 text-[var(--primary)]" /> Quick Create Campaign
+                            </h3>
+                            <button onClick={() => setShowCampaignModal(false)} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleCreateCampaign} className="space-y-3">
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-[var(--text-secondary)]">Campaign Name *</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Black Friday Special"
+                                    value={newCampaignName}
+                                    onChange={(e) => setNewCampaignName(e.target.value)}
+                                    className="input-clean text-xs"
+                                    autoFocus
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-semibold text-[var(--text-secondary)]">Objective</label>
+                                <select
+                                    value={newCampaignObjective}
+                                    onChange={(e) => setNewCampaignObjective(e.target.value)}
+                                    className="input-clean text-xs"
+                                >
+                                    <option value="Product Launch">Product Launch</option>
+                                    <option value="Brand Awareness">Brand Awareness</option>
+                                    <option value="Lead Generation">Lead Generation</option>
+                                    <option value="Conversion / Sales">Conversion / Sales</option>
+                                    <option value="Holiday Sale">Holiday Sale</option>
+                                    <option value="Retargeting">Retargeting</option>
+                                </select>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setShowCampaignModal(false)} className="btn-secondary text-xs h-8 px-3">
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={creatingCampaign} className="btn-primary text-xs h-8 px-3">
+                                    {creatingCampaign ? "Creating..." : "Create & Select"}
                                 </button>
                             </div>
                         </form>

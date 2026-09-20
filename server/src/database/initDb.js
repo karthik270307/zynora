@@ -114,7 +114,7 @@ const initDb = async () => {
             );
         `);
 
-        // 7. Ensure columns exist on creatives if table was created previously
+        // 7. Ensure columns exist on creatives and campaigns if created previously
         const alterColumns = [
             `ALTER TABLE creatives ADD COLUMN IF NOT EXISTS brand_id UUID REFERENCES brands(id) ON DELETE SET NULL;`,
             `ALTER TABLE creatives ADD COLUMN IF NOT EXISTS project_id UUID REFERENCES projects(id) ON DELETE SET NULL;`,
@@ -122,7 +122,10 @@ const initDb = async () => {
             `ALTER TABLE creatives ADD COLUMN IF NOT EXISTS media_url TEXT;`,
             `ALTER TABLE creatives ADD COLUMN IF NOT EXISTS analysis_data JSONB;`,
             `ALTER TABLE creatives ALTER COLUMN conversion_probability TYPE NUMERIC;`,
-            `ALTER TABLE creatives ALTER COLUMN estimated_ctr TYPE NUMERIC;`
+            `ALTER TABLE creatives ALTER COLUMN estimated_ctr TYPE NUMERIC;`,
+            `ALTER TABLE campaigns ALTER COLUMN project_id DROP NOT NULL;`,
+            `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;`,
+            `ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS brand_id UUID REFERENCES brands(id) ON DELETE SET NULL;`
         ];
 
         for (const q of alterColumns) {
@@ -130,7 +133,7 @@ const initDb = async () => {
                 await pool.query(q);
             } catch (err) {
                 // Non-critical if column already exists or table structure matches
-                console.log("Notice during alter creatives:", err.message);
+                console.log("Notice during alter schema:", err.message);
             }
         }
 

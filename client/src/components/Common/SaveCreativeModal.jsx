@@ -6,6 +6,7 @@ import { createCreative } from '../../services/creativeService';
 import { 
     Briefcase, 
     Folder, 
+    Megaphone,
     Plus, 
     Check, 
     X, 
@@ -24,6 +25,7 @@ function SaveCreativeModal({
     creativeData,
     initialBrandId = '',
     initialProjectId = '',
+    initialCampaignId = '',
     onSaved
 }) {
     const navigate = useNavigate();
@@ -31,8 +33,12 @@ function SaveCreativeModal({
 
     const [selectedBrandId, setSelectedBrandId] = useState(initialBrandId);
     const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId);
+    const [selectedCampaignId, setSelectedCampaignId] = useState(initialCampaignId);
+
     const [projects, setProjects] = useState([]);
+    const [campaigns, setCampaigns] = useState([]);
     const [loadingProjects, setLoadingProjects] = useState(false);
+    const [loadingCampaigns, setLoadingCampaigns] = useState(false);
 
     // Inline Brand Creation State
     const [isCreatingBrand, setIsCreatingBrand] = useState(false);
@@ -49,13 +55,21 @@ function SaveCreativeModal({
         campaign_goal: 'Product Launch'
     });
 
+    // Inline Campaign Creation State
+    const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+    const [newCampaignForm, setNewCampaignForm] = useState({
+        campaign_name: '',
+        objective: 'Product Launch'
+    });
+
     const [saving, setSaving] = useState(false);
 
-    // Initialize or reset when modal opens or initialBrandId changes
+    // Initialize or reset when modal opens or initial IDs change
     useEffect(() => {
         if (isOpen) {
             setSelectedBrandId(initialBrandId || (brands.length > 0 ? brands[0].id : ''));
             setSelectedProjectId(initialProjectId || '');
+            setSelectedCampaignId(initialCampaignId || '');
             
             // If no brands exist at all, automatically open inline brand creation
             if (brands.length === 0) {
@@ -63,6 +77,7 @@ function SaveCreativeModal({
             } else {
                 setIsCreatingBrand(false);
             }
+            setIsCreatingCampaign(false);
 
             // Prepopulate suggested names from creativeData
             if (creativeData) {
@@ -80,9 +95,16 @@ function SaveCreativeModal({
                         campaign_goal: creativeData.campaignGoal || prev.campaign_goal
                     }));
                 }
+                if (creativeData.headline && !newCampaignForm.campaign_name) {
+                    setNewCampaignForm(prev => ({
+                        ...prev,
+                        campaign_name: `${creativeData.headline.slice(0, 30)} Campaign`,
+                        objective: 'Product Launch'
+                    }));
+                }
             }
         }
-    }, [isOpen, initialBrandId, initialProjectId, brands.length]);
+    }, [isOpen, initialBrandId, initialProjectId, initialCampaignId, brands.length]);
 
     // Fetch projects whenever selected brand changes
     useEffect(() => {
@@ -102,7 +124,6 @@ function SaveCreativeModal({
                     setProjects(filtered);
 
                     if (filtered.length > 0) {
-                        // Keep initial or pick first project
                         if (initialProjectId && filtered.some(p => p.id === initialProjectId)) {
                             setSelectedProjectId(initialProjectId);
                         } else if (!selectedProjectId || !filtered.some(p => p.id === selectedProjectId)) {
@@ -110,7 +131,6 @@ function SaveCreativeModal({
                         }
                         setIsCreatingProject(false);
                     } else {
-                        // No projects under this brand -> automatically toggle project creation
                         setSelectedProjectId('');
                         setIsCreatingProject(true);
                     }
@@ -127,6 +147,44 @@ function SaveCreativeModal({
         }
     }, [selectedBrandId, isCreatingBrand, isOpen]);
 
+    // Fetch campaigns whenever brand or project changes
+    useEffect(() => {
+        const fetchCampaignsForContext = async () => {
+            if (isCreatingBrand) {
+                setCampaigns([]);
+                setSelectedCampaignId('');
+                return;
+            }
+
+            try {
+                setLoadingCampaigns(true);
+                let url = '/api/campaigns';
+                const params = new URLSearchParams();
+                if (selectedBrandId) params.append('brandId', selectedBrandId);
+                if (selectedProjectId) params.append('projectId', selectedProjectId);
+                const qs = params.toString();
+                if (qs) url += `?${qs}`;
+
+                const response = await api.get(url);
+                if (response.data.success) {
+                    const fetched = response.data.campaigns || [];
+                    setCampaigns(fetched);
+                    if (selectedCampaignId && !fetched.some(c => c.id === selectedCampaignId)) {
+                        setSelectedCampaignId('');
+                    }
+                }
+            } catch (err) {
+                console.warn("Failed to load campaigns:", err);
+            } finally {
+                setLoadingCampaigns(false);
+            }
+        };
+
+        if (isOpen) {
+            fetchCampaignsForContext();
+        }
+    }, [selectedBrandId, selectedProjectId, isCreatingBrand, isOpen]);
+
     if (!isOpen) return null;
 
     const handleSave = async (e) => {
@@ -138,6 +196,8 @@ function SaveCreativeModal({
             let finalBrandName = '';
             let finalProjectId = selectedProjectId;
             let finalProjectName = '';
+            let finalCampaignId = selectedCampaignId;
+            let finalCampaignName = '';
 
             // Step 1: Create Brand if inline creation is active or no brand exists
             if (isCreatingBrand) {
@@ -189,7 +249,33 @@ function SaveCreativeModal({
                 finalProjectName = 'General Workspace';
             }
 
-            // Step 3: Save Creative with brand_id and project_id
+            // Step 3: Create Campaign if inline creation is active
+            if (isCreatingCampaign) {
+                if (!newCampaignForm.campaign_name.trim()) {
+                    toast.error("Please enter a Campaign Name");
+                    setSaving(false);
+                    return;
+                }
+
+                const campRes = await api.post('/api/campaigns', {
+                    campaign_name: newCampaignForm.campaign_name.trim(),
+                    objective: newCampaignForm.objective,
+                    brand_id: finalBrandId || null,
+                    project_id: finalProjectId || null
+                });
+
+                if (campRes.data?.success && campRes.data.campaign) {
+                    finalCampaignId = campRes.data.campaign.id;
+                    finalCampaignName = campRes.data.campaign.campaign_name;
+                } else {
+                    throw new Error(campRes.data?.message || "Failed to create campaign");
+                }
+            } else if (finalCampaignId) {
+                const existingCamp = campaigns.find(c => c.id === finalCampaignId);
+                finalCampaignName = existingCamp?.campaign_name || '';
+            }
+
+            // Step 4: Save Creative with brand_id, project_id, and campaign_id
             const creativePayload = {
                 brandName: finalBrandName || creativeData.brandName || "",
                 productName: creativeData.productName || "Creative Asset",
@@ -208,8 +294,9 @@ function SaveCreativeModal({
                 engagementScore: creativeData.engagementScore || 80,
                 conversionProbability: creativeData.conversionProbability || 0.15,
                 viralityScore: creativeData.viralityScore || 70,
-                brandId: finalBrandId,
-                projectId: finalProjectId
+                brandId: finalBrandId || null,
+                projectId: finalProjectId || null,
+                campaignId: finalCampaignId || null
             };
 
             const res = await createCreative(creativePayload);
@@ -220,23 +307,38 @@ function SaveCreativeModal({
                         <span className="font-bold">Creative saved to workspace!</span>
                         <span className="text-xs opacity-90">
                             Saved under <strong>{finalBrandName}</strong> &gt; <strong>{finalProjectName}</strong>
+                            {finalCampaignName ? ` > ${finalCampaignName}` : ''}
                         </span>
-                        <button 
-                            onClick={() => navigate(`/projects/${finalProjectId}`)}
-                            className="text-xs text-[var(--primary)] font-bold hover:underline flex items-center gap-1 mt-1"
-                        >
-                            View in Project Folder <ExternalLink className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-3 mt-1">
+                            {finalCampaignId && (
+                                <button 
+                                    onClick={() => navigate(`/campaigns/${finalCampaignId}`)}
+                                    className="text-xs text-[var(--primary)] font-bold hover:underline flex items-center gap-1"
+                                >
+                                    View in Campaign <ExternalLink className="w-3 h-3" />
+                                </button>
+                            )}
+                            {finalProjectId && (
+                                <button 
+                                    onClick={() => navigate(`/projects/${finalProjectId}`)}
+                                    className="text-xs text-[var(--text-secondary)] font-semibold hover:underline flex items-center gap-1"
+                                >
+                                    View in Project <ExternalLink className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
                     </div>,
-                    { duration: 5000 }
+                    { duration: 6000 }
                 );
 
                 if (onSaved) {
                     onSaved({
                         brandId: finalBrandId,
                         projectId: finalProjectId,
+                        campaignId: finalCampaignId,
                         brandName: finalBrandName,
                         projectName: finalProjectName,
+                        campaignName: finalCampaignName,
                         creative: res.data
                     });
                 }
@@ -276,10 +378,10 @@ function SaveCreativeModal({
                         </div>
                         <div>
                             <h2 className="text-base font-extrabold text-[var(--text-primary)]">
-                                Save to Project Workspace
+                                Save to Workspace
                             </h2>
                             <p className="text-xs text-[var(--text-secondary)]">
-                                Save this asset under a Brand and inside a Project folder.
+                                Select Brand, Project Folder, and optional Campaign.
                             </p>
                         </div>
                     </div>
@@ -405,7 +507,7 @@ function SaveCreativeModal({
                                         className="input-clean text-sm bg-[var(--surface)]"
                                     >
                                         {brands.map(b => (
-                                            <option key={b.id} value={b.id}>
+                                             <option key={b.id} value={b.id}>
                                                 {b.brand_name} {b.industry ? `(${b.industry})` : ''}
                                             </option>
                                         ))}
@@ -480,6 +582,76 @@ function SaveCreativeModal({
                             </div>
                         )}
                     </div>
+
+                    {/* Step 3: Campaign Selection / Creation (Optional) */}
+                    <div className="space-y-2.5 pt-2 border-t border-[var(--border)]">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                                <Megaphone className="w-3.5 h-3.5 text-[var(--primary)]" /> 3. Campaign (Optional)
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setIsCreatingCampaign(!isCreatingCampaign)}
+                                className="text-xs text-[var(--primary)] font-semibold hover:underline flex items-center gap-1"
+                            >
+                                {isCreatingCampaign ? "← Choose Existing Campaign" : "+ Create New Campaign"}
+                            </button>
+                        </div>
+
+                        {isCreatingCampaign ? (
+                            <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/5 space-y-3 animate-scale-up">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                                        New Campaign
+                                    </span>
+                                    <span className="text-[10px] text-[var(--text-muted)]">Will link creative immediately</span>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-semibold text-[var(--text-secondary)]">Campaign Name *</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Flash Sale Nov 2026"
+                                        value={newCampaignForm.campaign_name}
+                                        onChange={(e) => setNewCampaignForm({ ...newCampaignForm, campaign_name: e.target.value })}
+                                        className="input-clean text-xs bg-[var(--surface)]"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[11px] font-semibold text-[var(--text-secondary)]">Objective</label>
+                                    <select
+                                        value={newCampaignForm.objective}
+                                        onChange={(e) => setNewCampaignForm({ ...newCampaignForm, objective: e.target.value })}
+                                        className="input-clean text-xs bg-[var(--surface)]"
+                                    >
+                                        <option value="Product Launch">Product Launch</option>
+                                        <option value="Brand Awareness">Brand Awareness</option>
+                                        <option value="Lead Generation">Lead Generation</option>
+                                        <option value="Conversion / Sales">Conversion / Sales</option>
+                                        <option value="Holiday Sale">Holiday Sale</option>
+                                        <option value="Retargeting">Retargeting</option>
+                                    </select>
+                                </div>
+                            </div>
+                        ) : loadingCampaigns ? (
+                            <div className="text-xs text-[var(--text-secondary)] py-2">Loading campaigns...</div>
+                        ) : (
+                            <div>
+                                <select
+                                    value={selectedCampaignId}
+                                    onChange={(e) => setSelectedCampaignId(e.target.value)}
+                                    className="input-clean text-sm bg-[var(--surface)]"
+                                >
+                                    <option value="">-- No Campaign (General Workspace) --</option>
+                                    {campaigns.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            📢 {c.campaign_name} ({c.objective || 'Campaign'})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Modal Footer */}
@@ -503,7 +675,7 @@ function SaveCreativeModal({
                         ) : (
                             <>
                                 <Check className="w-3.5 h-3.5" />
-                                <span>Save to Project Folder</span>
+                                <span>Save Creative</span>
                             </>
                         )}
                     </button>

@@ -25,6 +25,8 @@ import Profile from "./pages/Profile/Profile";
 import Brands from "./pages/Brands/Brands";
 import Projects from "./pages/Projects/Projects";
 import ProjectDetail from "./pages/Projects/ProjectDetail";
+import Campaigns from "./pages/Campaigns/Campaigns";
+import CampaignDetail from "./pages/Campaigns/CampaignDetail";
 
 function App() {
     return (
@@ -41,6 +43,8 @@ function App() {
             <Route element={<ProtectedRoute />}>
                 <Route element={<DashboardLayout />}>
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/campaigns" element={<Campaigns />} />
+                    <Route path="/campaigns/:id" element={<CampaignDetail />} />
                     <Route path="/creative-studio" element={<CreativeStudio />} />
                     <Route path="/creative-analysis" element={<CreativeAnalysis />} />
                     <Route path="/creatives/:id" element={<CreativeDetails />} />

@@ -25,7 +25,7 @@ const requireRole = (allowedRoles) => {
                 const cId = cleanUUID(req.params.campaignId || req.params.id);
                 if (cId) {
                     const camp = await pool.query(
-                        "SELECT p.brand_id FROM campaigns c JOIN projects p ON c.project_id = p.id WHERE c.id = $1",
+                        "SELECT COALESCE(c.brand_id, p.brand_id) as brand_id FROM campaigns c LEFT JOIN projects p ON c.project_id = p.id WHERE c.id = $1",
                         [cId]
                     );
                     if (camp.rows[0]) brandId = cleanUUID(camp.rows[0].brand_id);

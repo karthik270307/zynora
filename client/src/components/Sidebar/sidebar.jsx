@@ -15,7 +15,8 @@ import {
     LogOut,
     User,
     Briefcase,
-    Folder
+    Folder,
+    Megaphone
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import zynoraLogo from "../../assets/zynora-logo.png";
@@ -27,6 +28,7 @@ export const navigationSections = [
         title: "WORKSPACE",
         items: [
             { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+            { name: "Campaigns", path: "/campaigns", icon: Megaphone },
             { name: "Projects", path: "/projects", icon: Folder },
             { name: "Brands", path: "/brands", icon: Briefcase },
             { name: "Creative Studio", path: "/creative-studio", icon: Sparkles, badge: "AI" }
