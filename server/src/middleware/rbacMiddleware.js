@@ -5,31 +5,33 @@ const pool = require("../config/db");
 const requireRole = (allowedRoles) => {
     return async (req, res, next) => {
         try {
-            const userId = req.user.id;
-            let brandId = req.params.brandId || req.body.brandId || req.body.brand_id || req.query.brandId;
+            const userId = req.user?.id;
+            let brandId = req.params?.brandId || req.body?.brandId || req.body?.brand_id || req.query?.brandId;
 
             // Resolve brandId from resource if not directly specified
-            // 1. Projects resource
-            if (!brandId && req.params.projectId) {
-                const proj = await pool.query("SELECT brand_id FROM projects WHERE id = $1", [req.params.projectId]);
+            // 1. Projects resource (either /api/projects/:id or /api/projects/:projectId/...)
+            if (!brandId && (req.params?.projectId || (req.params?.id && req.baseUrl?.includes("projects")))) {
+                const pId = req.params.projectId || req.params.id;
+                const proj = await pool.query("SELECT brand_id FROM projects WHERE id = $1", [pId]);
                 if (proj.rows[0]) brandId = proj.rows[0].brand_id;
             }
-            // 2. Campaigns resource
-            if (!brandId && req.params.campaignId) {
+            // 2. Campaigns resource (either /api/campaigns/:id or /api/campaigns/:campaignId)
+            if (!brandId && (req.params?.campaignId || (req.params?.id && req.baseUrl?.includes("campaigns")))) {
+                const cId = req.params.campaignId || req.params.id;
                 const camp = await pool.query(
                     "SELECT p.brand_id FROM campaigns c JOIN projects p ON c.project_id = p.id WHERE c.id = $1",
-                    [req.params.campaignId]
+                    [cId]
                 );
                 if (camp.rows[0]) brandId = camp.rows[0].brand_id;
             }
             // 3. Creatives resource
-            if (!brandId && req.params.id && req.baseUrl.includes("creatives")) {
+            if (!brandId && req.params?.id && req.baseUrl?.includes("creatives")) {
                 const creative = await pool.query("SELECT brand_id FROM creatives WHERE id = $1", [req.params.id]);
                 if (creative.rows[0]) brandId = creative.rows[0].brand_id;
             }
 
             // If brandId is still not found and the route is brands/:id, then it is the brandId
-            if (!brandId && req.params.id && req.baseUrl.includes("brands")) {
+            if (!brandId && req.params?.id && req.baseUrl?.includes("brands")) {
                 brandId = req.params.id;
             }
 
@@ -45,8 +47,12 @@ const requireRole = (allowedRoles) => {
             // Fallback: if brand_members row doesn't exist yet but user is the creator of the brand
             if (!userRole) {
                 const brandRes = await pool.query("SELECT user_id FROM brands WHERE id = $1", [brandId]);
-                if (brandRes.rows[0] && brandRes.rows[0].user_id === userId) {
+                if (brandRes.rows[0] && Number(brandRes.rows[0].user_id) === Number(userId)) {
                     userRole = "BRAND_OWNER";
+                    // Self-heal: add user to brand_members so future checks are immediate
+                    try {
+                        await memberModel.addMember(brandId, userId, "BRAND_OWNER");
+                    } catch (_) {}
                 }
             }
 

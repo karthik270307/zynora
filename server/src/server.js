@@ -154,8 +154,16 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(5000, () => {console.log("Server Running...");});
-app.get("/test", (req,res)=>{
+const initDb = require("./database/initDb");
+
+// Initialize database schema
+initDb();
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server Running on port ${PORT}...`);
+});
+app.get("/test", (req, res) => {
     res.send("Server works");
 });
 

@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { generateCreativeBrief } from "../../services/aiService";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
+import SaveCreativeModal from "../../components/Common/SaveCreativeModal";
 import { createCreative } from "../../services/creativeService";
+import { exportCreativeToPdf } from "../../utils/pdfExport";
 import {
     PLATFORM_OPTIONS,
     TARGET_AUDIENCE_OPTIONS,
@@ -54,6 +56,8 @@ function CreativeStudio() {
     const [selectedProjectId, setSelectedProjectId] = useState("");
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [saveModalOpen, setSaveModalOpen] = useState(false);
+    const [creativeToSave, setCreativeToSave] = useState(null);
     
     const [form, setForm] = useState({
         brandName: "",
@@ -208,42 +212,69 @@ function CreativeStudio() {
         const caption = variant?.caption || result.adCopy || result.caption || result.bodyCopy || "";
         const cta = variant?.cta || result.cta || "";
 
-        try {
-            setSaving(true);
-            toast.loading("Saving creative asset...", { id: "save" });
-            const payload = {
-                brandName: form.brandName,
-                productName: form.productName,
-                description: form.description,
-                headline,
-                subheadline,
-                caption,
-                cta,
-                platform: form.platform,
-                targetAudience: form.targetAudience,
-                brandTone: form.brandTone,
-                creativeType: "text",
-                mediaUrl: null,
-                brandId: selectedBrandId || null,
-                projectId: selectedProjectId || null
-            };
-            const res = await createCreative(payload);
-            if (res.success) {
-                toast.success("Creative saved successfully!", { id: "save" });
-                setSaved(true);
+        const payload = {
+            brandName: form.brandName,
+            productName: form.productName,
+            description: form.description,
+            headline,
+            subheadline,
+            caption,
+            cta,
+            platform: form.platform,
+            targetAudience: form.targetAudience,
+            brandTone: form.brandTone,
+            creativeType: "text",
+            mediaUrl: null,
+            brandId: selectedBrandId || null,
+            projectId: selectedProjectId || null
+        };
+
+        if (selectedBrandId && selectedProjectId) {
+            try {
+                setSaving(true);
+                toast.loading("Saving creative asset...", { id: "save" });
+                const res = await createCreative(payload);
+                if (res.success) {
+                    toast.success("Creative saved to project workspace successfully!", { id: "save" });
+                    setSaved(true);
+                }
+            } catch (err) {
+                toast.error(err.response?.data?.message || "Failed to save creative", { id: "save" });
+            } finally {
+                setSaving(false);
             }
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to save creative", { id: "save" });
-        } finally {
-            setSaving(false);
+        } else {
+            setCreativeToSave(payload);
+            setSaveModalOpen(true);
         }
     };
 
     const handleCopy = (text, index) => {
+        if (!text) return;
         navigator.clipboard.writeText(text);
         setCopiedIndex(index);
         toast.success("Copied to clipboard!");
         setTimeout(() => setCopiedIndex(null), 2000);
+    };
+
+    const handleDownloadPdf = () => {
+        if (!result) return;
+        exportCreativeToPdf({
+            brandName: form.brandName || "Brand",
+            productName: form.productName || "Product",
+            headline: result.headline || result.primaryHeadline,
+            subheadline: result.subheadline,
+            caption: result.adCopy || result.caption || result.bodyCopy,
+            cta: result.cta,
+            platform: form.platform,
+            targetAudience: form.targetAudience,
+            brandTone: form.brandTone,
+            strategicAngle: result.strategicAngle,
+            visualDirection: result.visualDirection,
+            hashtags: result.hashtags,
+            indianCulture: indianCulture.enabled ? indianCulture : null
+        });
+        toast.success("Creative brief PDF downloaded!");
     };
 
     return (
@@ -682,24 +713,36 @@ function CreativeStudio() {
                                 </div>
                             )}
 
-                            {/* Save Actions */}
-                            <div className="flex items-center justify-between bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xs">
+                            {/* Save & Export Actions */}
+                            <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-xs">
                                 <span className="text-xs text-[var(--text-secondary)]">
-                                    {saved ? "✓ Saved to project database" : "Ready to save this creative?"}
+                                    {saved ? "✓ Saved to project database" : "Export or save this creative ad"}
                                 </span>
-                                 {activeBrand && (activeBrand.user_role === 'VIEWER' || activeBrand.user_role === 'MARKETING_ANALYST') ? (
-                                    <span className="text-[10px] text-red-500 font-semibold">
-                                        Read-only mode: Saving disabled
-                                    </span>
-                                ) : (
+                                <div className="flex items-center gap-2">
                                     <button
-                                        onClick={handleSave}
-                                        disabled={saving || saved}
-                                        className="btn-primary text-xs py-2 px-4 h-9"
+                                        type="button"
+                                        onClick={handleDownloadPdf}
+                                        className="btn-secondary text-xs py-2 px-3.5 h-9 flex items-center gap-1.5"
+                                        title="Download creative brief as a PDF file"
                                     >
-                                        {saving ? "Saving..." : saved ? "Saved" : "Save to Workspace"}
+                                        <Download className="w-3.5 h-3.5 text-[var(--primary)]" />
+                                        <span>Download PDF</span>
                                     </button>
-                                )}
+
+                                    {activeBrand && (activeBrand.user_role === 'VIEWER' || activeBrand.user_role === 'MARKETING_ANALYST') ? (
+                                        <span className="text-[10px] text-red-500 font-semibold">
+                                            Read-only mode
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={handleSave}
+                                            disabled={saving || saved}
+                                            className="btn-primary text-xs py-2 px-4 h-9"
+                                        >
+                                            {saving ? "Saving..." : saved ? "Saved" : "Save to Workspace"}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Headline & Hooks Card */}
@@ -853,6 +896,20 @@ function CreativeStudio() {
                     )}
                 </div>
             </div>
+
+            {/* Save to Project Modal */}
+            <SaveCreativeModal
+                isOpen={saveModalOpen}
+                onClose={() => setSaveModalOpen(false)}
+                creativeData={creativeToSave}
+                initialBrandId={selectedBrandId}
+                initialProjectId={selectedProjectId}
+                onSaved={({ brandId, projectId }) => {
+                    setSelectedBrandId(brandId);
+                    setSelectedProjectId(projectId);
+                    setSaved(true);
+                }}
+            />
         </div>
     );
 }

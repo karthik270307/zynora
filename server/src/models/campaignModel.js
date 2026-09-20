@@ -1,10 +1,16 @@
 const pool = require("../config/db");
 
 const createCampaign = async (campaignData, userId) => {
-    // First verify that the project belongs to the user
+    const numericUserId = parseInt(userId, 10);
+    // First verify that the project belongs to the user or brand workspace
     const projCheck = await pool.query(
-        "SELECT id FROM projects WHERE id = $1 AND user_id = $2", 
-        [campaignData.project_id, userId]
+        `SELECT id FROM projects 
+         WHERE id = $1 AND (
+             user_id = $2 
+             OR brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $2)
+             OR brand_id IN (SELECT id FROM brands WHERE user_id = $2)
+         )`, 
+        [campaignData.project_id, numericUserId]
     );
     if (projCheck.rows.length === 0) {
         throw new Error("Project not found or unauthorized");
@@ -37,9 +43,15 @@ const createCampaign = async (campaignData, userId) => {
 };
 
 const getCampaignsByProject = async (projectId, userId) => {
+    const numericUserId = parseInt(userId, 10);
     const projCheck = await pool.query(
-        "SELECT id FROM projects WHERE id = $1 AND user_id = $2", 
-        [projectId, userId]
+        `SELECT id FROM projects 
+         WHERE id = $1 AND (
+             user_id = $2 
+             OR brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $2)
+             OR brand_id IN (SELECT id FROM brands WHERE user_id = $2)
+         )`, 
+        [projectId, numericUserId]
     );
     if (projCheck.rows.length === 0) {
         throw new Error("Project not found or unauthorized");
@@ -51,19 +63,20 @@ const getCampaignsByProject = async (projectId, userId) => {
          FROM campaigns c WHERE c.project_id = $1 ORDER BY c.created_at DESC`,
         [projectId]
     );
-    return result.rows;
+    return result.rows || [];
 };
 
 const getCampaignById = async (id, userId) => {
+    const numericUserId = parseInt(userId, 10);
     // Verify user ownership via projects table
     const result = await pool.query(
         `SELECT c.* 
          FROM campaigns c
          JOIN projects p ON c.project_id = p.id
          WHERE c.id = $1 AND p.user_id = $2`,
-        [id, userId]
+        [id, numericUserId]
     );
-    return result.rows[0];
+    return result.rows[0] || null;
 };
 
 const updateCampaign = async (id, userId, campaignData) => {

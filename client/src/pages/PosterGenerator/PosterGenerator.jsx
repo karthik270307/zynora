@@ -3,6 +3,8 @@ import axios from "axios";
 import html2canvas from "html2canvas";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
+import SaveCreativeModal from "../../components/Common/SaveCreativeModal";
+import { createCreative } from "../../services/creativeService";
 import {
     PLATFORM_OPTIONS,
     TARGET_AUDIENCE_OPTIONS,
@@ -27,6 +29,10 @@ function PosterGenerator() {
     const { activeBrand, brands } = useBrand();
     const [selectedBrandId, setSelectedBrandId] = useState("");
     const [selectedProjectId, setSelectedProjectId] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [saveModalOpen, setSaveModalOpen] = useState(false);
+    const [creativeToSave, setCreativeToSave] = useState(null);
     const posterRef = useRef(null);
 
     const [form, setForm] = useState({
@@ -197,6 +203,52 @@ function PosterGenerator() {
             toast.error("Unable to download poster", { id: "p-down" });
         } finally {
             setDownloading(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!posterRef.current) return;
+        try {
+            setSaving(true);
+            const canvas = await html2canvas(posterRef.current, {
+                scale: 1.5,
+                useCORS: true,
+                backgroundColor: "#ffffff"
+            });
+            const imgData = canvas.toDataURL("image/png");
+
+            const payload = {
+                brandName: form.brandName,
+                productName: form.productName,
+                description: form.description,
+                headline: result?.headline || `${form.productName || "Product"} Poster`,
+                caption: form.description || result?.caption || "",
+                cta: form.cta || "Shop Now",
+                platform: form.platform,
+                targetAudience: form.targetAudience,
+                brandTone: form.brandTone,
+                creativeType: "image",
+                mediaUrl: imgData,
+                brandId: selectedBrandId || null,
+                projectId: selectedProjectId || null
+            };
+
+            if (selectedBrandId && selectedProjectId) {
+                toast.loading("Saving poster to project...", { id: "save-poster" });
+                const res = await createCreative(payload);
+                if (res.success) {
+                    toast.success("Poster saved to project workspace successfully!", { id: "save-poster" });
+                    setSaved(true);
+                }
+            } else {
+                setCreativeToSave(payload);
+                setSaveModalOpen(true);
+            }
+        } catch (err) {
+            console.error("Save poster error:", err);
+            toast.error(err.response?.data?.message || "Failed to save poster");
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -414,12 +466,28 @@ function PosterGenerator() {
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
+                                        onClick={handleSave}
+                                        disabled={saving || saved}
+                                        className="btn-secondary text-xs h-8 px-3"
+                                    >
+                                        {saving ? "Saving..." : saved ? "Saved ✓" : "Save to Workspace"}
+                                    </button>
+                                    <button
                                         onClick={downloadPoster}
                                         disabled={downloading}
-                                        className="btn-primary text-xs h-8 px-3"
+                                        className="btn-secondary text-xs h-8 px-3"
                                     >
                                         <Download className="w-3.5 h-3.5" />
-                                        <span>{downloading ? "Preparing..." : "Download PNG"}</span>
+                                        <span>{downloading ? "..." : "PNG"}</span>
+                                    </button>
+                                    <button
+                                        onClick={downloadPosterPdf}
+                                        disabled={downloading}
+                                        className="btn-primary text-xs h-8 px-3 flex items-center gap-1.5"
+                                        title="Download poster as PDF document"
+                                    >
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>{downloading ? "Rendering..." : "Download PDF"}</span>
                                     </button>
                                     <button
                                         onClick={handleAnalyzePoster}
@@ -483,6 +551,20 @@ function PosterGenerator() {
                     )}
                 </div>
             </div>
+
+            {/* Save to Project Modal */}
+            <SaveCreativeModal
+                isOpen={saveModalOpen}
+                onClose={() => setSaveModalOpen(false)}
+                creativeData={creativeToSave}
+                initialBrandId={selectedBrandId}
+                initialProjectId={selectedProjectId}
+                onSaved={({ brandId, projectId }) => {
+                    setSelectedBrandId(brandId);
+                    setSelectedProjectId(projectId);
+                    setSaved(true);
+                }}
+            />
         </div>
     );
 }

@@ -42,3 +42,11 @@ export const updateCreative = async (id, creativeData) => {
     );
     return response.data;
 };
+
+// ANALYZE CREATIVE WITH GEMINI AI
+export const analyzeCreativeById = async (id) => {
+    const response = await api.post(
+        `/api/creatives/${id}/analyze`
+    );
+    return response.data;
+};

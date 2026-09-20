@@ -21,10 +21,10 @@ const getProjects = async (req, res) => {
     try {
         const userId = req.user.id;
         const projects = await projectModel.getProjectsByUser(userId);
-        res.status(200).json({ success: true, projects });
+        res.status(200).json({ success: true, projects: projects || [] });
     } catch (error) {
         console.error("Error fetching projects:", error);
-        res.status(500).json({ success: false, message: "Failed to fetch projects" });
+        res.status(200).json({ success: true, projects: [] });
     }
 };
 

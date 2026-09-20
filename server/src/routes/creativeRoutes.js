@@ -9,7 +9,8 @@
         createCreative,
         getCreatives,
         getCreative,
-        updateCreative
+        updateCreative,
+        analyzeCreativeById
     } = require("../controllers/creativeController");
 
 
@@ -40,6 +41,13 @@
         authMiddleware,
         requireRole(["BRAND_OWNER", "CREATIVE_EDITOR", "MARKETING_ANALYST"]),
         updateCreative
+    );
+
+    router.post(
+        "/:id/analyze",
+        authMiddleware,
+        requireRole(["BRAND_OWNER", "CREATIVE_EDITOR", "MARKETING_ANALYST", "VIEWER"]),
+        analyzeCreativeById
     );
 
     module.exports = router;

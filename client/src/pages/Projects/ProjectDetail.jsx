@@ -39,28 +39,35 @@ function ProjectDetail() {
             const token = localStorage.getItem("zynora_token");
             const headers = { Authorization: `Bearer ${token}` };
             
-            const [projRes, campRes, creativeRes] = await Promise.all([
+            const [projResult, campResult, creativeResult] = await Promise.allSettled([
                 axios.get(`${import.meta.env.VITE_API_URL}/api/projects/${id}`, { headers }),
                 axios.get(`${import.meta.env.VITE_API_URL}/api/projects/${id}/campaigns`, { headers }),
                 axios.get(`${import.meta.env.VITE_API_URL}/api/creatives`, { headers })
             ]);
             
-            if (projRes.data.success) {
-                setProject(projRes.data.project);
+            if (projResult.status === 'fulfilled' && projResult.value.data.success) {
+                setProject(projResult.value.data.project);
+            } else if (projResult.status === 'rejected') {
+                const status = projResult.reason?.response?.status;
+                if (status === 404 || status === 403) {
+                    toast.error("Project not found or unauthorized");
+                    navigate('/projects');
+                    return;
+                }
+                toast.error("Failed to load project details");
             }
-            if (campRes.data.success) {
-                setCampaigns(campRes.data.campaigns);
+            
+            if (campResult.status === 'fulfilled' && campResult.value.data.success) {
+                setCampaigns(campResult.value.data.campaigns || []);
             }
-            if (creativeRes.data.success) {
+            
+            if (creativeResult.status === 'fulfilled' && creativeResult.value.data.success) {
                 // Filter creatives belonging to this project
-                const filtered = (creativeRes.data.data || []).filter(c => c.project_id === id);
+                const filtered = (creativeResult.value.data.data || []).filter(c => c.project_id === id);
                 setCreatives(filtered);
             }
         } catch (error) {
             toast.error("Failed to load project details");
-            if (error.response?.status === 404 || error.response?.status === 403) {
-                navigate('/projects');
-            }
         } finally {
             setLoading(false);
         }
@@ -226,9 +233,9 @@ function ProjectDetail() {
                             </div>
                             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-sm text-center">
                                 <div className="text-2xl font-black text-[var(--text-primary)]">
-                                    {creatives.filter(c => c.creative_type === 'image').length}
+                                    {creatives.filter(c => c.creative_type === 'image' || c.creative_type === 'poster').length}
                                 </div>
-                                <div className="text-xs font-semibold text-[var(--text-secondary)] mt-1">Images</div>
+                                <div className="text-xs font-semibold text-[var(--text-secondary)] mt-1">Images & Posters</div>
                             </div>
                             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 shadow-sm text-center">
                                 <div className="text-2xl font-black text-[var(--text-primary)]">
@@ -358,16 +365,16 @@ function ProjectDetail() {
                 {activeTab === 'images' && (
                     <div className="space-y-4">
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-bold text-[var(--text-primary)]">Generated Images</h2>
+                            <h2 className="text-lg font-bold text-[var(--text-primary)]">Generated Images & Posters</h2>
                         </div>
-                        {creatives.filter(c => c.creative_type === 'image').length === 0 ? (
+                        {creatives.filter(c => c.creative_type === 'image' || c.creative_type === 'poster').length === 0 ? (
                             <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-12 text-center shadow-sm">
                                 <ImageIcon className="w-12 h-12 text-[var(--text-muted)] mx-auto mb-4" />
-                                <p className="text-sm text-[var(--text-secondary)]">No visual image assets in this project yet.</p>
+                                <p className="text-sm text-[var(--text-secondary)]">No visual image or poster assets in this project yet.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {creatives.filter(c => c.creative_type === 'image').map(img => (
+                                {creatives.filter(c => c.creative_type === 'image' || c.creative_type === 'poster').map(img => (
                                     <div key={img.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden shadow-sm hover:border-[var(--primary)] transition-colors flex flex-col">
                                         <div className="h-48 bg-slate-900 flex items-center justify-center overflow-hidden border-b border-[var(--border)]">
                                             <img src={img.media_url || img.caption} alt={img.headline} className="h-full w-auto object-contain" />

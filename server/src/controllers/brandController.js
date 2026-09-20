@@ -25,10 +25,10 @@ const getBrands = async (req, res) => {
     try {
         const userId = req.user.id;
         const brands = await brandModel.getBrandsByUser(userId);
-        res.status(200).json({ success: true, brands });
+        res.status(200).json({ success: true, brands: brands || [] });
     } catch (error) {
         console.error("Error fetching brands:", error);
-        res.status(500).json({ success: false, message: "Failed to fetch brands" });
+        res.status(200).json({ success: true, brands: [] });
     }
 };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
+import SaveCreativeModal from "../../components/Common/SaveCreativeModal";
 import { createCreative } from "../../services/creativeService";
 import axios from 'axios';
 import {
@@ -29,6 +30,8 @@ function VideoGenerator() {
     const [selectedProjectId, setSelectedProjectId] = useState("");
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [saveModalOpen, setSaveModalOpen] = useState(false);
+    const [creativeToSave, setCreativeToSave] = useState(null);
 
     const [form, setForm] = useState({
         brandName: "",
@@ -160,32 +163,39 @@ function VideoGenerator() {
     };
     const handleSave = async () => {
         if (!videoUrl) return;
-        try {
-            setSaving(true);
-            const payload = {
-                brandName: form.brandName,
-                productName: form.productName,
-                description: form.description,
-                headline: videoPlan.title || "Generated Marketing Video",
-                caption: form.description,
-                cta: "Download MP4",
-                platform: form.platform,
-                targetAudience: form.targetAudience || "General",
-                brandTone: form.brandTone || "Modern",
-                creativeType: "video",
-                mediaUrl: videoUrl,
-                brandId: selectedBrandId || null,
-                projectId: selectedProjectId || null
-            };
-            const res = await createCreative(payload);
-            if (res.success) {
-                toast.success("Video saved to workspace successfully!");
-                setSaved(true);
+        const payload = {
+            brandName: form.brandName,
+            productName: form.productName,
+            description: form.description,
+            headline: videoPlan?.title || `${form.productName || "Product"} Video Ad`,
+            caption: form.description,
+            cta: "Watch Video",
+            platform: form.platform,
+            targetAudience: form.targetAudience || "General",
+            brandTone: form.brandTone || "Modern",
+            creativeType: "video",
+            mediaUrl: videoUrl,
+            brandId: selectedBrandId || null,
+            projectId: selectedProjectId || null
+        };
+
+        if (selectedBrandId && selectedProjectId) {
+            try {
+                setSaving(true);
+                toast.loading("Saving video asset...", { id: "save-vid" });
+                const res = await createCreative(payload);
+                if (res.success) {
+                    toast.success("Video saved to project workspace successfully!", { id: "save-vid" });
+                    setSaved(true);
+                }
+            } catch (err) {
+                toast.error(err.response?.data?.message || "Failed to save video", { id: "save-vid" });
+            } finally {
+                setSaving(false);
             }
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to save video");
-        } finally {
-            setSaving(false);
+        } else {
+            setCreativeToSave(payload);
+            setSaveModalOpen(true);
         }
     };
     return (
@@ -559,6 +569,20 @@ function VideoGenerator() {
                     )}
                 </div>
             </div>
+
+            {/* Save to Project Modal */}
+            <SaveCreativeModal
+                isOpen={saveModalOpen}
+                onClose={() => setSaveModalOpen(false)}
+                creativeData={creativeToSave}
+                initialBrandId={selectedBrandId}
+                initialProjectId={selectedProjectId}
+                onSaved={({ brandId, projectId }) => {
+                    setSelectedBrandId(brandId);
+                    setSelectedProjectId(projectId);
+                    setSaved(true);
+                }}
+            />
         </div>
     );
 }

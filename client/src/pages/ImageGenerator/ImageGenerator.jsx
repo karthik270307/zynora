@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { generateImage } from "../../services/imageService";
 import { useBrand } from "../../context/BrandContext";
 import ContextSelector from "../../components/Common/ContextSelector";
+import SaveCreativeModal from "../../components/Common/SaveCreativeModal";
 import { createCreative } from "../../services/creativeService";
 import axios from 'axios';
 import { PLATFORM_OPTIONS } from "../../constants/creativeOptions";
@@ -23,6 +24,8 @@ function ImageGenerator() {
     const [selectedProjectId, setSelectedProjectId] = useState("");
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [saveModalOpen, setSaveModalOpen] = useState(false);
+    const [creativeToSave, setCreativeToSave] = useState(null);
 
     const [form, setForm] = useState({
         brandName: "",
@@ -102,32 +105,39 @@ function ImageGenerator() {
 
     const handleSave = async () => {
         if (!image) return;
-        try {
-            setSaving(true);
-            const payload = {
-                brandName: form.brandName,
-                productName: form.productName,
-                description: form.description,
-                headline: "Generated Image Asset",
-                caption: form.description,
-                cta: "Download Image",
-                platform: form.platform,
-                targetAudience: form.targetAudience,
-                brandTone: form.brandTone,
-                creativeType: "image",
-                mediaUrl: image.url || `data:image/jpeg;base64,${image.b64_json}`,
-                brandId: selectedBrandId || null,
-                projectId: selectedProjectId || null
-            };
-            const res = await createCreative(payload);
-            if (res.success) {
-                toast.success("Image saved to workspace successfully!");
-                setSaved(true);
+        const payload = {
+            brandName: form.brandName,
+            productName: form.productName,
+            description: form.description,
+            headline: `${form.productName || "Product"} Visual Asset`,
+            caption: form.description,
+            cta: "View Product",
+            platform: form.platform,
+            targetAudience: form.targetAudience,
+            brandTone: form.brandTone,
+            creativeType: "image",
+            mediaUrl: image.url || `data:image/jpeg;base64,${image.b64_json}`,
+            brandId: selectedBrandId || null,
+            projectId: selectedProjectId || null
+        };
+
+        if (selectedBrandId && selectedProjectId) {
+            try {
+                setSaving(true);
+                toast.loading("Saving image asset...", { id: "save-img" });
+                const res = await createCreative(payload);
+                if (res.success) {
+                    toast.success("Image saved to project workspace successfully!", { id: "save-img" });
+                    setSaved(true);
+                }
+            } catch (err) {
+                toast.error(err.response?.data?.message || "Failed to save image", { id: "save-img" });
+            } finally {
+                setSaving(false);
             }
-        } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to save image");
-        } finally {
-            setSaving(false);
+        } else {
+            setCreativeToSave(payload);
+            setSaveModalOpen(true);
         }
     };
 
@@ -405,6 +415,20 @@ function ImageGenerator() {
                     )}
                 </div>
             </div>
+
+            {/* Save to Project Modal */}
+            <SaveCreativeModal
+                isOpen={saveModalOpen}
+                onClose={() => setSaveModalOpen(false)}
+                creativeData={creativeToSave}
+                initialBrandId={selectedBrandId}
+                initialProjectId={selectedProjectId}
+                onSaved={({ brandId, projectId }) => {
+                    setSelectedBrandId(brandId);
+                    setSelectedProjectId(projectId);
+                    setSaved(true);
+                }}
+            />
         </div>
     );
 }
