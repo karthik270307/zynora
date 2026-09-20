@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { useBrand } from '../../context/BrandContext';
 import { Plus, Folder, Calendar, Target, Edit2, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -30,10 +30,7 @@ function Projects() {
     const fetchProjects = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("zynora_token");
-            const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/projects`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get('/api/projects');
             if (response.data.success) {
                 setProjects(response.data.projects);
             }
@@ -87,21 +84,19 @@ function Projects() {
         e.preventDefault();
         try {
             setSubmitting(true);
-            const token = localStorage.getItem('zynora_token');
-            const headers = { Authorization: `Bearer ${token}` };
             
             if (isEditing) {
-                await axios.put(`${import.meta.env.VITE_API_URL}/api/projects/${editingId}`, formData, { headers });
+                await api.put(`/api/projects/${editingId}`, formData);
                 toast.success('Project updated successfully');
             } else {
-                await axios.post(`${import.meta.env.VITE_API_URL}/api/projects`, formData, { headers });
+                await api.post('/api/projects', formData);
                 toast.success('Project created successfully');
             }
             
             fetchProjects();
             handleCloseForm();
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Operation failed');
+            toast.error(error.response?.data?.message || error.response?.data?.error || 'Operation failed');
         } finally {
             setSubmitting(false);
         }
@@ -113,14 +108,11 @@ function Projects() {
             return;
         }
         try {
-            const token = localStorage.getItem('zynora_token');
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/projects/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.delete(`/api/projects/${id}`);
             toast.success('Project deleted successfully');
             fetchProjects();
         } catch (error) {
-            toast.error('Failed to delete project');
+            toast.error(error.response?.data?.message || 'Failed to delete project');
         }
     };
 

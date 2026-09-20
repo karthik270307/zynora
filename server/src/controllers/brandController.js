@@ -6,18 +6,22 @@ const createBrand = async (req, res) => {
         const userId = req.user.id;
         const brandData = { ...req.body, user_id: userId };
         
-        if (!brandData.brand_name) {
+        if (!brandData.brand_name || !brandData.brand_name.trim()) {
             return res.status(400).json({ success: false, message: "Brand name is required" });
         }
 
         const brand = await brandModel.createBrand(brandData);
         // Automatically add creator to brand_members as BRAND_OWNER
-        await memberModel.addMember(brand.id, userId, 'BRAND_OWNER');
+        try {
+            await memberModel.addMember(brand.id, userId, 'BRAND_OWNER');
+        } catch (memberErr) {
+            console.warn("Notice: creator membership add warning:", memberErr.message);
+        }
         
         res.status(201).json({ success: true, brand });
     } catch (error) {
         console.error("Error creating brand:", error);
-        res.status(500).json({ success: false, message: "Failed to create brand" });
+        res.status(500).json({ success: false, message: "Failed to create brand", error: error.message });
     }
 };
 

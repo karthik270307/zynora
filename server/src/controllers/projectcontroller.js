@@ -5,7 +5,7 @@ const createProject = async (req, res) => {
         const userId = req.user.id;
         const projectData = { ...req.body, user_id: userId };
         
-        if (!projectData.project_name) {
+        if (!projectData.project_name || !projectData.project_name.trim()) {
             return res.status(400).json({ success: false, message: "Project name is required" });
         }
 
@@ -13,7 +13,7 @@ const createProject = async (req, res) => {
         res.status(201).json({ success: true, project });
     } catch (error) {
         console.error("Error creating project:", error);
-        res.status(500).json({ success: false, message: "Failed to create project" });
+        res.status(500).json({ success: false, message: "Failed to create project", error: error.message });
     }
 };
 

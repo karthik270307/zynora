@@ -1,38 +1,48 @@
 const memberModel = require("../models/memberModel");
 const pool = require("../config/db");
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const cleanUUID = (val) => (val && typeof val === "string" && UUID_REGEX.test(val.trim()) ? val.trim() : null);
+
 // Verify user has access to brand with one of the allowed roles
 const requireRole = (allowedRoles) => {
     return async (req, res, next) => {
         try {
             const userId = req.user?.id;
-            let brandId = req.params?.brandId || req.body?.brandId || req.body?.brand_id || req.query?.brandId;
+            let brandId = cleanUUID(req.params?.brandId || req.body?.brandId || req.body?.brand_id || req.query?.brandId);
 
             // Resolve brandId from resource if not directly specified
             // 1. Projects resource (either /api/projects/:id or /api/projects/:projectId/...)
             if (!brandId && (req.params?.projectId || (req.params?.id && req.baseUrl?.includes("projects")))) {
-                const pId = req.params.projectId || req.params.id;
-                const proj = await pool.query("SELECT brand_id FROM projects WHERE id = $1", [pId]);
-                if (proj.rows[0]) brandId = proj.rows[0].brand_id;
+                const pId = cleanUUID(req.params.projectId || req.params.id);
+                if (pId) {
+                    const proj = await pool.query("SELECT brand_id FROM projects WHERE id = $1", [pId]);
+                    if (proj.rows[0]) brandId = cleanUUID(proj.rows[0].brand_id);
+                }
             }
             // 2. Campaigns resource (either /api/campaigns/:id or /api/campaigns/:campaignId)
             if (!brandId && (req.params?.campaignId || (req.params?.id && req.baseUrl?.includes("campaigns")))) {
-                const cId = req.params.campaignId || req.params.id;
-                const camp = await pool.query(
-                    "SELECT p.brand_id FROM campaigns c JOIN projects p ON c.project_id = p.id WHERE c.id = $1",
-                    [cId]
-                );
-                if (camp.rows[0]) brandId = camp.rows[0].brand_id;
+                const cId = cleanUUID(req.params.campaignId || req.params.id);
+                if (cId) {
+                    const camp = await pool.query(
+                        "SELECT p.brand_id FROM campaigns c JOIN projects p ON c.project_id = p.id WHERE c.id = $1",
+                        [cId]
+                    );
+                    if (camp.rows[0]) brandId = cleanUUID(camp.rows[0].brand_id);
+                }
             }
             // 3. Creatives resource
             if (!brandId && req.params?.id && req.baseUrl?.includes("creatives")) {
-                const creative = await pool.query("SELECT brand_id FROM creatives WHERE id = $1", [req.params.id]);
-                if (creative.rows[0]) brandId = creative.rows[0].brand_id;
+                const crId = cleanUUID(req.params.id);
+                if (crId) {
+                    const creative = await pool.query("SELECT brand_id FROM creatives WHERE id = $1", [crId]);
+                    if (creative.rows[0]) brandId = cleanUUID(creative.rows[0].brand_id);
+                }
             }
 
             // If brandId is still not found and the route is brands/:id, then it is the brandId
             if (!brandId && req.params?.id && req.baseUrl?.includes("brands")) {
-                brandId = req.params.id;
+                brandId = cleanUUID(req.params.id);
             }
 
             if (!brandId) {

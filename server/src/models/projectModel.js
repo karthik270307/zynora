@@ -1,7 +1,11 @@
 const pool = require("../config/db");
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const cleanUUID = (val) => (val && typeof val === "string" && UUID_REGEX.test(val.trim()) ? val.trim() : null);
+
 const createProject = async (projectData) => {
     const numericUserId = parseInt(projectData.user_id, 10);
+    const brandId = cleanUUID(projectData.brand_id || projectData.brandId);
     const query = `
         INSERT INTO projects (
             user_id, brand_id, project_name, description, campaign_goal, 
@@ -14,7 +18,7 @@ const createProject = async (projectData) => {
     `;
     const values = [
         numericUserId,
-        projectData.brand_id || null,
+        brandId,
         projectData.project_name,
         projectData.description || null,
         projectData.campaign_goal || null,
@@ -35,12 +39,14 @@ const getProjectsByUser = async (userId) => {
     }
     try {
         const result = await pool.query(
-            `SELECT p.*, b.brand_name,
+            `SELECT DISTINCT p.*, b.brand_name,
                 (SELECT COUNT(*) FROM campaigns c WHERE c.project_id = p.id) as campaign_count,
                 (SELECT COUNT(*) FROM creatives cr WHERE cr.project_id = p.id) as creative_count
              FROM projects p 
              LEFT JOIN brands b ON p.brand_id = b.id
              WHERE p.user_id = $1 
+                OR p.brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $1)
+                OR p.brand_id IN (SELECT id FROM brands WHERE user_id = $1)
              ORDER BY p.updated_at DESC`,
             [numericUserId]
         );
@@ -80,6 +86,7 @@ const updateProject = async (id, userId, projectData) => {
     if (isNaN(numericUserId)) {
         return null;
     }
+    const brandId = cleanUUID(projectData.brand_id || projectData.brandId);
     try {
         const query = `
             UPDATE projects SET
@@ -97,7 +104,7 @@ const updateProject = async (id, userId, projectData) => {
             RETURNING *
         `;
         const values = [
-            projectData.brand_id,
+            brandId,
             projectData.project_name,
             projectData.description,
             projectData.campaign_goal,

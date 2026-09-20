@@ -18,6 +18,8 @@ const addMember = async (brandId, userId, role) => {
     const query = `
         INSERT INTO brand_members (brand_id, user_id, role)
         VALUES ($1, $2, $3)
+        ON CONFLICT (brand_id, user_id) 
+        DO UPDATE SET role = EXCLUDED.role, updated_at = CURRENT_TIMESTAMP
         RETURNING *
     `;
     const result = await pool.query(query, [brandId, userId, role]);

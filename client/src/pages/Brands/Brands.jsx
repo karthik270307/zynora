@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useBrand } from '../../context/BrandContext';
 import { Plus, Building2, Globe, Trash2, Edit2, Target, Hash, Users, ArrowLeft } from 'lucide-react';
-import axios from 'axios';
+import api from '../../services/api';
 import { toast } from 'react-hot-toast';
 import TeamManagement from './TeamManagement';
 
@@ -61,21 +61,19 @@ function Brands() {
         e.preventDefault();
         try {
             setSubmitting(true);
-            const token = localStorage.getItem('zynora_token');
-            const headers = { Authorization: `Bearer ${token}` };
             
             if (isEditing) {
-                await axios.put(`${import.meta.env.VITE_API_URL}/api/brands/${editingId}`, formData, { headers });
+                await api.put(`/api/brands/${editingId}`, formData);
                 toast.success('Brand updated successfully');
             } else {
-                await axios.post(`${import.meta.env.VITE_API_URL}/api/brands`, formData, { headers });
+                await api.post('/api/brands', formData);
                 toast.success('Brand created successfully');
             }
             
             refreshBrands();
             handleCloseForm();
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Operation failed');
+            toast.error(error.response?.data?.message || error.response?.data?.error || 'Operation failed');
         } finally {
             setSubmitting(false);
         }
@@ -86,14 +84,11 @@ function Brands() {
             return;
         }
         try {
-            const token = localStorage.getItem('zynora_token');
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/brands/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.delete(`/api/brands/${id}`);
             toast.success('Brand deleted successfully');
             refreshBrands();
         } catch (error) {
-            toast.error('Failed to delete brand');
+            toast.error(error.response?.data?.message || 'Failed to delete brand');
         }
     };
 

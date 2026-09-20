@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { Briefcase, Folder, Plus, X, Check } from 'lucide-react';
 import { useBrand } from '../../context/BrandContext';
 import toast from 'react-hot-toast';
@@ -51,16 +51,11 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
         const fetchBrands = async () => {
             try {
                 setLoadingBrands(true);
-                const token = localStorage.getItem("zynora_token");
-                if (!token) return;
-                const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/brands`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await api.get('/api/brands');
                 if (response.data.success) {
                     setLocalBrands(response.data.brands || []);
                 }
             } catch (err) {
-                // Graceful fallback: localBrands will stay []
                 console.warn("Notice: could not load brands list", err.message);
             } finally {
                 setLoadingBrands(false);
@@ -79,11 +74,7 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
             }
             try {
                 setLoadingProjects(true);
-                const token = localStorage.getItem("zynora_token");
-                if (!token) return;
-                const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/projects`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await api.get('/api/projects');
                 if (response.data.success) {
                     const filtered = (response.data.projects || []).filter(p => p.brand_id === selectedBrandId);
                     setProjects(filtered);
@@ -111,15 +102,10 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
         }
         try {
             setCreatingBrand(true);
-            const token = localStorage.getItem("zynora_token");
-            const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/brands`,
-                {
-                    brand_name: newBrandName.trim(),
-                    industry: newBrandIndustry.trim() || undefined
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const response = await api.post('/api/brands', {
+                brand_name: newBrandName.trim(),
+                industry: newBrandIndustry.trim() || undefined
+            });
 
             if (response.data.success && response.data.brand) {
                 const created = response.data.brand;
@@ -132,7 +118,7 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
                 setNewBrandIndustry('');
             }
         } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to create brand");
+            toast.error(err.response?.data?.message || err.response?.data?.error || "Failed to create brand");
         } finally {
             setCreatingBrand(false);
         }
@@ -145,22 +131,13 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
             toast.error("Project name is required");
             return;
         }
-        if (!selectedBrandId) {
-            toast.error("Please select a brand first");
-            return;
-        }
         try {
             setCreatingProject(true);
-            const token = localStorage.getItem("zynora_token");
-            const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/projects`,
-                {
-                    project_name: newProjectName.trim(),
-                    campaign_goal: newProjectGoal,
-                    brand_id: selectedBrandId
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const response = await api.post('/api/projects', {
+                project_name: newProjectName.trim(),
+                campaign_goal: newProjectGoal,
+                brand_id: selectedBrandId || null
+            });
 
             if (response.data.success && response.data.project) {
                 const created = response.data.project;
@@ -171,7 +148,7 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
                 setNewProjectName('');
             }
         } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to create project");
+            toast.error(err.response?.data?.message || err.response?.data?.error || "Failed to create project");
         } finally {
             setCreatingProject(false);
         }
@@ -230,21 +207,23 @@ function ContextSelector({ selectedBrandId, setSelectedBrandId, selectedProjectI
                         <button 
                             type="button" 
                             onClick={() => {
-                                if (!selectedBrandId) {
-                                    toast.error("Please select a brand first");
-                                    return;
-                                }
                                 setShowProjectModal(true);
                             }} 
                             className="text-[10px] text-[var(--primary)] hover:underline flex items-center gap-0.5 font-semibold"
-                            disabled={!selectedBrandId}
                         >
                             <Plus className="w-2.5 h-2.5" /> New Project
                         </button>
                     </div>
                     {!selectedBrandId ? (
-                        <div className="text-xs text-[var(--text-muted)] h-10 flex items-center bg-[var(--surface)] px-3 rounded-lg border border-[var(--border)] opacity-70">
-                            Select a brand first to see projects
+                        <div className="flex items-center justify-between h-10 bg-[var(--surface)] px-3 rounded-lg border border-[var(--border)]">
+                            <span className="text-xs text-[var(--text-muted)]">Standalone / No Brand selected</span>
+                            <button
+                                type="button"
+                                onClick={() => setShowProjectModal(true)}
+                                className="text-xs text-[var(--primary)] font-bold hover:underline"
+                            >
+                                + Project
+                            </button>
                         </div>
                     ) : loadingProjects ? (
                         <div className="text-xs text-[var(--text-secondary)] h-10 flex items-center">Loading projects...</div>

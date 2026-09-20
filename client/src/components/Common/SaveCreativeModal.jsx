@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useBrand } from '../../context/BrandContext';
 import { createCreative } from '../../services/creativeService';
@@ -95,12 +95,7 @@ function SaveCreativeModal({
 
             try {
                 setLoadingProjects(true);
-                const token = localStorage.getItem('zynora_token');
-                if (!token) return;
-
-                const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/projects`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await api.get('/api/projects');
 
                 if (response.data.success) {
                     const filtered = (response.data.projects || []).filter(p => p.brand_id === selectedBrandId);
@@ -139,66 +134,59 @@ function SaveCreativeModal({
         setSaving(true);
 
         try {
-            const token = localStorage.getItem('zynora_token');
-            const headers = { Authorization: `Bearer ${token}` };
-
             let finalBrandId = selectedBrandId;
             let finalBrandName = '';
             let finalProjectId = selectedProjectId;
             let finalProjectName = '';
 
             // Step 1: Create Brand if inline creation is active or no brand exists
-            if (isCreatingBrand || !finalBrandId) {
+            if (isCreatingBrand) {
                 if (!newBrandForm.brand_name.trim()) {
                     toast.error("Please enter a Brand Name");
                     setSaving(false);
                     return;
                 }
 
-                const brandRes = await axios.post(
-                    `${import.meta.env.VITE_API_URL}/api/brands`,
-                    newBrandForm,
-                    { headers }
-                );
+                const brandRes = await api.post('/api/brands', newBrandForm);
 
                 if (brandRes.data?.success && brandRes.data.brand) {
                     finalBrandId = brandRes.data.brand.id;
                     finalBrandName = brandRes.data.brand.brand_name;
                     refreshBrands();
                 } else {
-                    throw new Error("Failed to create brand");
+                    throw new Error(brandRes.data?.message || "Failed to create brand");
                 }
-            } else {
+            } else if (finalBrandId) {
                 const existingBrand = brands.find(b => b.id === finalBrandId);
                 finalBrandName = existingBrand?.brand_name || creativeData?.brandName || 'Brand';
+            } else {
+                finalBrandName = creativeData?.brandName || 'Brand';
             }
 
-            // Step 2: Create Project if inline creation is active or no project exists under the brand
-            if (isCreatingProject || !finalProjectId) {
+            // Step 2: Create Project if inline creation is active
+            if (isCreatingProject) {
                 if (!newProjectForm.project_name.trim()) {
                     toast.error("Please enter a Project Name");
                     setSaving(false);
                     return;
                 }
 
-                const projectRes = await axios.post(
-                    `${import.meta.env.VITE_API_URL}/api/projects`,
-                    {
-                        ...newProjectForm,
-                        brand_id: finalBrandId
-                    },
-                    { headers }
-                );
+                const projectRes = await api.post('/api/projects', {
+                    ...newProjectForm,
+                    brand_id: finalBrandId || null
+                });
 
                 if (projectRes.data?.success && projectRes.data.project) {
                     finalProjectId = projectRes.data.project.id;
                     finalProjectName = projectRes.data.project.project_name;
                 } else {
-                    throw new Error("Failed to create project");
+                    throw new Error(projectRes.data?.message || "Failed to create project");
                 }
-            } else {
+            } else if (finalProjectId) {
                 const existingProj = projects.find(p => p.id === finalProjectId);
                 finalProjectName = existingProj?.project_name || 'Project';
+            } else {
+                finalProjectName = 'General Workspace';
             }
 
             // Step 3: Save Creative with brand_id and project_id

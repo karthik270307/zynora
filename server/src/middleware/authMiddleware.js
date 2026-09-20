@@ -35,33 +35,54 @@ const authMiddleware = async (
 
         req.user = decoded;
 
-        // If user id is a string/fallback ID (e.g. "usr_...") and not an integer:
-        const parsedId = parseInt(req.user.id, 10);
-        if (isNaN(parsedId) || String(parsedId) !== String(req.user.id)) {
-            if (req.user.email) {
-                try {
-                    let dbUser = await userModel.findUserByEmail(req.user.email);
-                    if (dbUser && !isNaN(parseInt(dbUser.id, 10))) {
-                        req.user.id = parseInt(dbUser.id, 10);
-                    } else {
-                        // Attempt to provision in PostgreSQL
-                        const created = await pool.query(
-                            `INSERT INTO users (name, email, password_hash)
-                             VALUES ($1, $2, $3)
-                             ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-                             RETURNING id`,
-                            [req.user.name || req.user.email.split("@")[0], req.user.email.toLowerCase(), "fallback_synced_user"]
-                        );
-                        if (created.rows[0]) {
-                            req.user.id = parseInt(created.rows[0].id, 10);
-                        }
-                    }
-                } catch (e) {
-                    console.warn("authMiddleware: could not sync fallback user to PostgreSQL:", e.message);
+        // Ensure user exists in PostgreSQL users table to prevent FK constraint violations
+        let numericUserId = parseInt(req.user.id, 10);
+        let userFound = false;
+
+        if (!isNaN(numericUserId)) {
+            try {
+                const userCheck = await pool.query("SELECT id FROM users WHERE id = $1", [numericUserId]);
+                if (userCheck.rows.length > 0) {
+                    req.user.id = numericUserId;
+                    userFound = true;
                 }
+            } catch (err) {
+                console.warn("authMiddleware: error checking user by ID:", err.message);
             }
-        } else {
-            req.user.id = parsedId;
+        }
+
+        if (!userFound && req.user.email) {
+            try {
+                const normalizedEmail = req.user.email.trim().toLowerCase();
+                const userByEmail = await pool.query("SELECT id FROM users WHERE email = $1", [normalizedEmail]);
+                if (userByEmail.rows.length > 0) {
+                    req.user.id = parseInt(userByEmail.rows[0].id, 10);
+                    userFound = true;
+                } else {
+                    // Provision user in PostgreSQL
+                    const userName = req.user.name || req.user.email.split("@")[0] || "User";
+                    const created = await pool.query(
+                        `INSERT INTO users (name, email, password_hash)
+                         VALUES ($1, $2, $3)
+                         ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
+                         RETURNING id`,
+                        [userName, normalizedEmail, "fallback_synced_user"]
+                    );
+                    if (created.rows[0]) {
+                        req.user.id = parseInt(created.rows[0].id, 10);
+                        userFound = true;
+                    }
+                }
+            } catch (err) {
+                console.warn("authMiddleware: could not sync user to PostgreSQL:", err.message);
+            }
+        }
+
+        if (!userFound) {
+            return res.status(401).json({
+                success: false,
+                message: "User account not found or synchronized"
+            });
         }
 
         next();
