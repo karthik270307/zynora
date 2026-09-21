@@ -184,11 +184,19 @@ app.get("/db-test", async (req, res) => {
 
     } catch (error) {
 
-        console.error(error);
+        console.error("Database connection error in /db-test:", error);
 
         res.status(500).json({
             success: false,
-            message: "Database connection failed"
+            message: "Database connection failed",
+            error: error.message,
+            code: error.code || "UNKNOWN",
+            diagnostics: {
+                hasDatabaseUrl: Boolean(process.env.DATABASE_URL),
+                host: process.env.DATABASE_URL ? "Using DATABASE_URL" : (process.env.DB_HOST || "localhost (default fallback)"),
+                database: process.env.DB_NAME || (process.env.DATABASE_URL ? "From DATABASE_URL" : "zynora"),
+                sslEnabled: Boolean(process.env.DATABASE_URL || process.env.DB_SSL === 'true' || (process.env.NODE_ENV === 'production' && process.env.DB_HOST && process.env.DB_HOST !== 'localhost'))
+            }
         });
     }
 });
