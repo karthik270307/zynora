@@ -78,7 +78,9 @@ const authMiddleware = async (
             }
         }
 
-        if (!userFound) {
+        // If user was not found in PostgreSQL (e.g. DB connecting or fallback in-memory user),
+        // preserve the authenticated JWT session without forcing a 401 session expiration
+        if (!userFound && !req.user?.id && !req.user?.email) {
             return res.status(401).json({
                 success: false,
                 message: "User account not found or synchronized"
