@@ -1,7 +1,19 @@
 const pool = require("../config/db");
+const { ensureDbUser } = require("../utils/userHelper");
 
 const createBrand = async (brandData) => {
-    const numericUserId = parseInt(brandData.user_id, 10);
+    let numericUserId = parseInt(brandData.user_id, 10);
+    
+    // Ensure user_id exists in users table to prevent FK constraint violation
+    if (isNaN(numericUserId)) {
+        numericUserId = await ensureDbUser({ id: brandData.user_id, email: brandData.user_email });
+    } else {
+        const uCheck = await pool.query("SELECT id FROM users WHERE id = $1", [numericUserId]);
+        if (uCheck.rows.length === 0) {
+            numericUserId = await ensureDbUser({ id: brandData.user_id, email: brandData.user_email });
+        }
+    }
+
     const query = `
         INSERT INTO brands (
             user_id, brand_name, description, logo_url, industry, website, 

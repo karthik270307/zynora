@@ -13,8 +13,16 @@ const getMembers = async (brandId) => {
     return result.rows;
 };
 
+const { ensureDbUser } = require("../utils/userHelper");
+
 // Add a member to a brand
 const addMember = async (brandId, userId, role) => {
+    let numericUserId = parseInt(userId, 10);
+    if (isNaN(numericUserId)) {
+        numericUserId = await ensureDbUser({ id: userId });
+    }
+    if (!numericUserId) return null;
+
     const query = `
         INSERT INTO brand_members (brand_id, user_id, role)
         VALUES ($1, $2, $3)
@@ -22,8 +30,13 @@ const addMember = async (brandId, userId, role) => {
         DO UPDATE SET role = EXCLUDED.role, updated_at = CURRENT_TIMESTAMP
         RETURNING *
     `;
-    const result = await pool.query(query, [brandId, userId, role]);
-    return result.rows[0];
+    try {
+        const result = await pool.query(query, [brandId, numericUserId, role]);
+        return result.rows[0];
+    } catch (err) {
+        console.warn("addMember warning:", err.message);
+        return null;
+    }
 };
 
 // Get a specific membership by brand_id and user_id

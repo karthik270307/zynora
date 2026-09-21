@@ -1,11 +1,31 @@
 const pool = require("../config/db");
+const { ensureDbUser } = require("../utils/userHelper");
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const cleanUUID = (val) => (val && typeof val === "string" && UUID_REGEX.test(val.trim()) ? val.trim() : null);
 
 const createProject = async (projectData) => {
-    const numericUserId = parseInt(projectData.user_id, 10);
-    const brandId = cleanUUID(projectData.brand_id || projectData.brandId);
+    let numericUserId = parseInt(projectData.user_id, 10);
+    
+    // Ensure user_id exists in users table to prevent FK constraint violation
+    if (isNaN(numericUserId)) {
+        numericUserId = await ensureDbUser({ id: projectData.user_id, email: projectData.user_email });
+    } else {
+        const uCheck = await pool.query("SELECT id FROM users WHERE id = $1", [numericUserId]);
+        if (uCheck.rows.length === 0) {
+            numericUserId = await ensureDbUser({ id: projectData.user_id, email: projectData.user_email });
+        }
+    }
+
+    // Verify brand_id exists in brands table
+    let brandId = cleanUUID(projectData.brand_id || projectData.brandId);
+    if (brandId) {
+        try {
+            const bCheck = await pool.query("SELECT id FROM brands WHERE id = $1", [brandId]);
+            if (bCheck.rows.length === 0) brandId = null;
+        } catch (_) { brandId = null; }
+    }
+
     const query = `
         INSERT INTO projects (
             user_id, brand_id, project_name, description, campaign_goal, 

@@ -10,49 +10,53 @@ const cleanUUID = (val) => {
 
 // CREATE CREATIVE
 const createCreative = async (creative) => {
-    const numericUserId = parseInt(creative.userId, 10);
+    let numericUserId = parseInt(creative.userId, 10);
 
-    const query = `
-        INSERT INTO creatives (
-            user_id,
-            brand_name,
-            product_name,
-            description,
-            headline,
-            caption,
-            cta,
-            platform,
-            target_audience,
-            brand_tone,
-            creative_type,
-            creative_score,
-            estimated_ctr,
-            engagement_score,
-            conversion_probability,
-            virality_score,
-            brand_id,
-            project_id,
-            campaign_id,
-            media_url,
-            analysis_data
-        )
+    // Verify user exists in PostgreSQL to avoid FK constraint violation
+    if (!isNaN(numericUserId)) {
+        try {
+            const userCheck = await pool.query("SELECT id FROM users WHERE id = $1", [numericUserId]);
+            if (userCheck.rows.length === 0) {
+                numericUserId = null;
+            }
+        } catch (_) {
+            numericUserId = null;
+        }
+    } else {
+        numericUserId = null;
+    }
 
-        VALUES (
-            $1, $2, $3, $4, $5,
-            $6, $7, $8, $9, $10,
-            $11, $12, $13, $14, $15,
-            $16, $17, $18, $19, $20,
-            $21
-        )
+    // Verify brand, project, and campaign foreign keys exist in DB to prevent FK violations
+    let brandId = cleanUUID(creative.brandId);
+    let projectId = cleanUUID(creative.projectId);
+    let campaignId = cleanUUID(creative.campaignId);
 
-        RETURNING *
-    `;
+    if (brandId) {
+        try {
+            const bCheck = await pool.query("SELECT id FROM brands WHERE id = $1", [brandId]);
+            if (bCheck.rows.length === 0) brandId = null;
+        } catch (_) { brandId = null; }
+    }
+
+    if (projectId) {
+        try {
+            const pCheck = await pool.query("SELECT id FROM projects WHERE id = $1", [projectId]);
+            if (pCheck.rows.length === 0) projectId = null;
+        } catch (_) { projectId = null; }
+    }
+
+    if (campaignId) {
+        try {
+            const cCheck = await pool.query("SELECT id FROM campaigns WHERE id = $1", [campaignId]);
+            if (cCheck.rows.length === 0) campaignId = null;
+        } catch (_) { campaignId = null; }
+    }
 
     const convProb = parseFloat(creative.conversionProbability);
     const estCtr = parseFloat(creative.estimatedCTR);
 
     const values = [
-        isNaN(numericUserId) ? null : numericUserId,
+        numericUserId,
         creative.brandName || null,
         creative.productName || null,
         creative.description || null,
@@ -68,19 +72,66 @@ const createCreative = async (creative) => {
         parseInt(creative.engagementScore, 10) || 80,
         isNaN(convProb) ? 15 : convProb,
         parseInt(creative.viralityScore, 10) || 70,
-        cleanUUID(creative.brandId),
-        cleanUUID(creative.projectId),
-        cleanUUID(creative.campaignId),
+        brandId,
+        projectId,
+        campaignId,
         creative.mediaUrl || null,
         creative.analysisData ? JSON.stringify(creative.analysisData) : null
     ];
 
-    const result = await pool.query(
-        query,
-        values
-    );
+    const query = `
+        INSERT INTO creatives (
+            user_id, brand_name, product_name, description, headline,
+            caption, cta, platform, target_audience, brand_tone,
+            creative_type, creative_score, estimated_ctr, engagement_score,
+            conversion_probability, virality_score, brand_id, project_id,
+            campaign_id, media_url, analysis_data
+        )
+        VALUES (
+            $1, $2, $3, $4, $5,
+            $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15,
+            $16, $17, $18, $19, $20,
+            $21
+        )
+        RETURNING *
+    `;
 
-    return result.rows[0];
+    try {
+        const result = await pool.query(query, values);
+        return result.rows[0];
+    } catch (err) {
+        console.warn("createCreative primary insert failed, attempting self-healing:", err.message);
+
+        // Ensure analysis_data column exists if that was the cause
+        if (err.message && err.message.includes("analysis_data")) {
+            try {
+                await pool.query("ALTER TABLE creatives ADD COLUMN IF NOT EXISTS analysis_data JSONB;");
+                const retryResult = await pool.query(query, values);
+                return retryResult.rows[0];
+            } catch (_) {}
+        }
+
+        // Resilient fallback query without analysis_data
+        const fallbackQuery = `
+            INSERT INTO creatives (
+                user_id, brand_name, product_name, description, headline,
+                caption, cta, platform, target_audience, brand_tone,
+                creative_type, creative_score, estimated_ctr, engagement_score,
+                conversion_probability, virality_score, brand_id, project_id,
+                campaign_id, media_url
+            )
+            VALUES (
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, $15,
+                $16, $17, $18, $19, $20
+            )
+            RETURNING *
+        `;
+        const result = await pool.query(fallbackQuery, values.slice(0, 20));
+        return result.rows[0];
+    }
 };
 
 
