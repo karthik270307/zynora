@@ -143,26 +143,11 @@ exports.generateRecommendations = async (req, res) => {
 
         if (
             !recommendations ||
-            typeof recommendations !== "object"
+            typeof recommendations !== "object" ||
+            !Array.isArray(recommendations.recommendations)
         ) {
-
-            throw new Error(
-                "Invalid recommendation result."
-            );
-
-        }
-
-
-        if (
-            !Array.isArray(
-                recommendations.recommendations
-            )
-        ) {
-
-            throw new Error(
-                "Recommendation result does not contain a valid recommendations array."
-            );
-
+            console.warn("[recommendationController] Invalid recommendation format, using heuristic fallback");
+            recommendations = recommendationService.generateFallbackRecommendations(req.body);
         }
 
 
