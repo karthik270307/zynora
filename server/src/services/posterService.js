@@ -7,43 +7,50 @@ const ai = new GoogleGenAI({
 const generatePosterContent = async (data) => {
 
     const prompt = `
-You are an expert Indian advertising creative strategist.
+You are an expert commercial advertising creative director and poster designer.
 
-Create a UNIQUE marketing poster concept for this product.
+Create a HIGH-IMPACT, AWARD-WINNING marketing poster concept for this product.
 
 Brand Name: ${data.brandName}
 Product Name: ${data.productName}
-Description: ${data.description}
+Description / Campaign Details: ${data.description}
 Campaign Goal: ${data.campaignGoal}
 Target Audience: ${data.targetAudience}
 Platform: ${data.platform}
 Brand Tone: ${data.brandTone}
-Language: ${data.language}
+Language: ${data.language || "English"}
 
-IMPORTANT:
-- Do not use generic advertising text.
-- Make the content specifically relevant to the product.
-- The headline must be different for different products.
-- The CTA must be relevant to the product.
-- The visual concept must describe the actual product.
-- Consider Indian consumers and cultural context where appropriate.
-- Keep the poster suitable for ${data.platform}.
+CRITICAL ADVERTISING POSTER RULES:
+- An ad poster is a VISUAL medium, NOT a blog or document! Never output long paragraphs of text.
+- headline: Extremely punchy, memorable, bold (max 5-7 words). E.g., "Amplify Your Hustle. Mute Campus Chaos."
+- subheadline: Short supporting hook (max 8-10 words). E.g., "Immersive Sound Meets Premium Ergonomic Design."
+- keyFeatures: Extract 3 to 4 short, punchy marketing feature highlights with an appropriate emoji. Each feature MUST be 2 to 4 words ONLY! E.g.:
+  ["🎧 Active Noise Cancelling", "⚡ 40H Battery Life", "💧 Sweat & Splash Proof", "✨ Touch Controls"]
+- punchline: Exactly 1 short, impactful marketing sentence (max 10-12 words). E.g., "Engineered for pure audio clarity, comfort, and all-day battery."
+- cta: Urgency-driven, crisp call to action (e.g. "SHOP NOW WITH STUDENT DISCOUNT", "CLAIM 50% OFF TODAY").
+- offerBadge: Very short badge (e.g. "STUDENT EXCLUSIVE", "50% OFF", "NEW ARRIVAL").
+- visualConcept: Detailed description of the poster visual.
+- colorSuggestion: Recommended colors.
+- layoutSuggestion: Recommended poster layout.
 
 Return ONLY valid JSON.
 
 {
-    "headline": "Attention grabbing headline",
-    "subheadline": "Short supporting message",
-    "body": "Short promotional message",
-    "cta": "Call to action",
-    "hashtags": [
-        "#hashtag1",
-        "#hashtag2",
-        "#hashtag3"
+    "headline": "Punchy headline (max 7 words)",
+    "subheadline": "Short hook (max 10 words)",
+    "keyFeatures": [
+        "🎧 Feature 1 (2-4 words)",
+        "⚡ Feature 2 (2-4 words)",
+        "💧 Feature 3 (2-4 words)",
+        "✨ Feature 4 (2-4 words)"
     ],
-    "visualConcept": "Detailed description of the poster visual",
+    "punchline": "One short sentence (max 12 words)",
+    "offerBadge": "Short badge (max 3 words)",
+    "cta": "Call to action (max 5 words)",
+    "hashtags": ["#tag1", "#tag2", "#tag3"],
+    "visualConcept": "Visual art direction",
     "colorSuggestion": "Recommended colors",
-    "layoutSuggestion": "Recommended poster layout"
+    "layoutSuggestion": "Recommended layout"
 }
 `;
 

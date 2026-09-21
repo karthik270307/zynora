@@ -30,6 +30,7 @@ import toast from "react-hot-toast";
 import PosterCanvas from "../../components/Poster/PosterCanvas";
 import { analyzeCreative } from "../../services/analysisService";
 import { predictPerformance } from "../../services/predictionService";
+import { removeSolidBackground } from "../../utils/imageUtils";
 
 function PosterGenerator() {
     const { activeBrand, brands } = useBrand();
@@ -119,36 +120,37 @@ function PosterGenerator() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Immediately set product image preview so user can proceed without being blocked
         const rawUrl = URL.createObjectURL(file);
-        setProductImage(rawUrl);
         setOriginalImage(rawUrl);
         setFileName(file.name);
+        setProductImage(rawUrl);
         setIsBgRemoved(false);
         setTransparentImage(null);
-        toast.success("Product photo uploaded!");
 
-        // Asynchronously attempt background isolation with 15s timeout
+        // Instant Canvas Studio Background Removal (~25ms)
         try {
             setRemovingBackground(true);
-            const { removeBackground } = await import("@imgly/background-removal");
-
-            const bgPromise = removeBackground(file);
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Timeout")), 15000)
-            );
-
-            const transparentBlob = await Promise.race([bgPromise, timeoutPromise]);
-            const transparentUrl = URL.createObjectURL(transparentBlob);
-
-            setTransparentImage(transparentUrl);
-            setProductImage(transparentUrl);
-            setIsBgRemoved(true);
-            toast.success("Product background isolated!", { id: "bg-rem" });
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = rawUrl;
+            img.onload = async () => {
+                try {
+                    const transparentUrl = await removeSolidBackground(img);
+                    if (transparentUrl) {
+                        setTransparentImage(transparentUrl);
+                        setProductImage(transparentUrl);
+                        setIsBgRemoved(true);
+                        toast.success("Product background removed!", { id: "bg-rem" });
+                    }
+                } catch (canvasErr) {
+                    console.warn("Canvas background isolation:", canvasErr);
+                } finally {
+                    setRemovingBackground(false);
+                }
+            };
+            img.onerror = () => setRemovingBackground(false);
         } catch (error) {
             console.warn("Background removal notice:", error);
-            // Non-fatal: original photo is already active and usable
-        } finally {
             setRemovingBackground(false);
         }
     };
