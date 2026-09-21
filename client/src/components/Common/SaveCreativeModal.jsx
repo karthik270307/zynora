@@ -109,7 +109,7 @@ function SaveCreativeModal({
     // Fetch projects whenever selected brand changes
     useEffect(() => {
         const fetchProjectsForBrand = async () => {
-            if (!selectedBrandId || isCreatingBrand) {
+            if (isCreatingBrand) {
                 setProjects([]);
                 setSelectedProjectId('');
                 return;
@@ -120,7 +120,11 @@ function SaveCreativeModal({
                 const response = await api.get('/api/projects');
 
                 if (response.data.success) {
-                    const filtered = (response.data.projects || []).filter(p => p.brand_id === selectedBrandId);
+                    const allProjects = response.data.projects || [];
+                    // Show projects matching selected brand, OR if no brand selected, show all user projects
+                    const filtered = selectedBrandId
+                        ? allProjects.filter(p => !p.brand_id || p.brand_id === selectedBrandId)
+                        : allProjects;
                     setProjects(filtered);
 
                     if (filtered.length > 0) {
@@ -145,7 +149,7 @@ function SaveCreativeModal({
         if (isOpen) {
             fetchProjectsForBrand();
         }
-    }, [selectedBrandId, isCreatingBrand, isOpen]);
+    }, [selectedBrandId, isCreatingBrand, isOpen, initialProjectId]);
 
     // Fetch campaigns whenever brand or project changes
     useEffect(() => {
@@ -507,6 +511,7 @@ function SaveCreativeModal({
                                         onChange={(e) => setSelectedBrandId(e.target.value)}
                                         className="input-clean text-sm bg-[var(--surface)]"
                                     >
+                                        <option value="">-- No Brand / Standalone Project --</option>
                                         {brands.map(b => (
                                              <option key={b.id} value={b.id}>
                                                 {b.brand_name} {b.industry ? `(${b.industry})` : ''}

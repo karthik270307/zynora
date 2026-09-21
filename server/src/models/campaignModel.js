@@ -275,8 +275,11 @@ const getCampaignCreatives = async (campaignId, userId) => {
              LEFT JOIN projects p ON cr.project_id = p.id
              WHERE cr.campaign_id = $1 AND (
                  cr.user_id = $2
+                 OR c.user_id = $2
+                 OR p.user_id = $2
                  OR cr.brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $2)
                  OR cr.brand_id IN (SELECT id FROM brands WHERE user_id = $2)
+                 OR cr.project_id IN (SELECT id FROM projects WHERE user_id = $2)
              )
              ORDER BY cr.created_at DESC`,
             [cleanId, numericUserId]

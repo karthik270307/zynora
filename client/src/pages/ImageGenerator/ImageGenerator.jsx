@@ -83,13 +83,17 @@ function ImageGenerator() {
             const response = await generateImage(payload);
 
             if (response.image) {
-                setImage({ b64_json: response.image, url: response.imageUrl });
+                setImage({ b64_json: response.image, url: response.imageUrl, mimeType: response.mimeType || "image/jpeg" });
                 toast.success("Image generated successfully!", { id: "img-gen" });
             } else if (response.data?.image) {
-                setImage(response.data.image);
+                setImage({
+                    b64_json: response.data.image.b64_json || response.data.image,
+                    url: response.data.image.url || response.imageUrl,
+                    mimeType: response.mimeType || response.data.image.mimeType || "image/jpeg"
+                });
                 toast.success("Image generated successfully!", { id: "img-gen" });
             } else if (response.imageUrl) {
-                setImage({ url: response.imageUrl });
+                setImage({ url: response.imageUrl, mimeType: response.mimeType || "image/jpeg" });
                 toast.success("Image generated successfully!", { id: "img-gen" });
             } else {
                 throw new Error("No image data returned from server");
@@ -117,7 +121,7 @@ function ImageGenerator() {
             targetAudience: form.targetAudience,
             brandTone: form.brandTone,
             creativeType: "image",
-            mediaUrl: image.url || `data:image/jpeg;base64,${image.b64_json}`,
+            mediaUrl: image.url || `data:${image.mimeType || 'image/jpeg'};base64,${image.b64_json}`,
             brandId: selectedBrandId || null,
             projectId: selectedProjectId || null,
             campaignId: selectedCampaignId || null
@@ -146,15 +150,16 @@ function ImageGenerator() {
     const handleDownload = () => {
         if (!image) return;
         const link = document.createElement("a");
+        const ext = (image.mimeType && image.mimeType.includes("png")) ? "png" : "jpg";
         if (image.b64_json) {
-            link.href = `data:image/jpeg;base64,${image.b64_json}`;
-        } else if (image.url) {
+            link.href = `data:${image.mimeType || 'image/jpeg'};base64,${image.b64_json}`;
+        } else {
             link.href = image.url;
         }
-        link.download = `${form.productName || "creative"}-visual.jpg`;
+        link.download = `${form.productName || 'product'}-visual.${ext}`;
         document.body.appendChild(link);
         link.click();
-        link.remove();
+        document.body.removeChild(link);
         toast.success("Image downloaded!");
     };
 
@@ -392,7 +397,7 @@ function ImageGenerator() {
                                 <img
                                     src={
                                         image.b64_json
-                                            ? `data:image/jpeg;base64,${image.b64_json}`
+                                            ? `data:${image.mimeType || 'image/jpeg'};base64,${image.b64_json}`
                                             : image.url
                                     }
                                     alt="Generated visual"

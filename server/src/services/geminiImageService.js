@@ -97,7 +97,7 @@ function generateVisualFallback(promptOrData) {
  * Generate marketing visual using high-performance image generation engine
  */
 const generateMarketingImage = async (promptOrData) => {
-    // 1. Try primary high-definition image generation (FLUX.1-schnell / SD via Hugging Face)
+    // 1. Primary high-definition image generation (SDXL / Flux / Unsplash Real Photo Fallback)
     try {
         console.log("[ImageService] Generating commercial visual with primary engine...");
         const result = await imageService.generateMarketingImage(promptOrData);
@@ -139,9 +139,9 @@ const generateMarketingImage = async (promptOrData) => {
         }
     }
 
-    // 3. Guaranteed High-Quality Commercial Composition Fallback
-    console.log("[ImageService] Delivering high-resolution commercial composition fallback...");
-    return generateVisualFallback(promptOrData);
+    // 3. Fallback to real commercial product photo
+    const productName = typeof promptOrData === "object" ? (promptOrData?.productName || "product") : (promptOrData || "product");
+    return await imageService.generateMarketingImage(productName);
 };
 
 module.exports = {

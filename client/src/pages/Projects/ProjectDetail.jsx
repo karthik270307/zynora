@@ -62,8 +62,12 @@ function ProjectDetail() {
             }
             
             if (creativeResult.status === 'fulfilled' && creativeResult.value.data.success) {
-                // Filter creatives belonging to this project
-                const filtered = (creativeResult.value.data.data || []).filter(c => c.project_id === id);
+                // Filter creatives belonging to this project by ID or project name
+                const currentProjName = projResult.status === 'fulfilled' && projResult.value.data.project?.project_name;
+                const filtered = (creativeResult.value.data.data || []).filter(c => 
+                    c.project_id === id || 
+                    (c.project_name && currentProjName && c.project_name.toLowerCase() === currentProjName.toLowerCase())
+                );
                 setCreatives(filtered);
             }
         } catch (error) {

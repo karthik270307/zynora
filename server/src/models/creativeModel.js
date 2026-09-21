@@ -181,6 +181,8 @@ const getAllCreatives = async (userId) => {
             WHERE cr.user_id = $1
             OR cr.brand_id IN (SELECT brand_id FROM brand_members WHERE user_id = $1)
             OR cr.brand_id IN (SELECT id FROM brands WHERE user_id = $1)
+            OR cr.project_id IN (SELECT id FROM projects WHERE user_id = $1)
+            OR cr.campaign_id IN (SELECT id FROM campaigns WHERE user_id = $1)
             ORDER BY cr.created_at DESC
             `,
             [numericUserId]
