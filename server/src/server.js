@@ -172,14 +172,23 @@ app.get("/db-test", async (req, res) => {
 
     try {
 
-        const result = await pool.query(
-            "SELECT NOW()"
-        );
+        if (req.query.migrate === "true") {
+            await initDb();
+        }
+
+        const timeResult = await pool.query("SELECT NOW()");
+        const tablesResult = await pool.query(`
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name ASC
+        `);
 
         res.json({
             success: true,
             message: "Database connected",
-            time: result.rows[0].now
+            time: timeResult.rows[0].now,
+            tables: tablesResult.rows.map(r => r.table_name)
         });
 
     } catch (error) {
