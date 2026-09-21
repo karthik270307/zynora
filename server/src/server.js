@@ -32,7 +32,7 @@ const memberRoutes = require("./routes/memberRoutes");
 
 // Security headers compatible with Google Identity Services & OAuth Popups
 app.use((req, res, next) => {
-    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+    res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
     res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
     next();
 });

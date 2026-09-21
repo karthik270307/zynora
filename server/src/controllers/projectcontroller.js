@@ -3,7 +3,7 @@ const projectModel = require("../models/projectModel");
 const createProject = async (req, res) => {
     try {
         const userId = req.user.id;
-        const projectData = { ...req.body, user_id: userId };
+        const projectData = { ...req.body, user_id: userId, user_email: req.user.email };
         
         if (!projectData.project_name || !projectData.project_name.trim()) {
             return res.status(400).json({ success: false, message: "Project name is required" });

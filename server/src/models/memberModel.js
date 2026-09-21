@@ -82,14 +82,28 @@ const deleteMember = async (brandId, memberId) => {
     return result.rows[0];
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const cleanUUID = (val) => (val && typeof val === "string" && UUID_REGEX.test(val.trim()) ? val.trim() : null);
+
 // Get user role for brand context
 const getUserRoleForBrand = async (brandId, userId) => {
-    const query = `
-        SELECT role FROM brand_members
-        WHERE brand_id = $1 AND user_id = $2
-    `;
-    const result = await pool.query(query, [brandId, userId]);
-    return result.rows[0] ? result.rows[0].role : null;
+    const cleanBrandId = cleanUUID(brandId);
+    let numericUserId = parseInt(userId, 10);
+    if (!cleanBrandId || isNaN(numericUserId) || numericUserId <= 0 || numericUserId > 2147483647) {
+        return null;
+    }
+
+    try {
+        const query = `
+            SELECT role FROM brand_members
+            WHERE brand_id = $1 AND user_id = $2
+        `;
+        const result = await pool.query(query, [cleanBrandId, numericUserId]);
+        return result.rows[0] ? result.rows[0].role : null;
+    } catch (err) {
+        console.warn("getUserRoleForBrand error:", err.message);
+        return null;
+    }
 };
 
 module.exports = {

@@ -26,7 +26,8 @@ const createCampaign = async (req, res) => {
         const campaignData = { 
             ...req.body, 
             project_id: projectId,
-            brand_id: brandId 
+            brand_id: brandId,
+            user_email: req.user.email
         };
         
         if (!campaignData.campaign_name || !campaignData.campaign_name.trim()) {

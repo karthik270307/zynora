@@ -8,12 +8,14 @@ const cleanUUID = (val) => {
     return uuidRegex.test(trimmed) ? trimmed : null;
 };
 
+const { ensureDbUser } = require("../utils/userHelper");
+
 // CREATE CREATIVE
 const createCreative = async (creative) => {
     let numericUserId = parseInt(creative.userId, 10);
 
     // Verify user exists in PostgreSQL to avoid FK constraint violation
-    if (!isNaN(numericUserId)) {
+    if (!isNaN(numericUserId) && numericUserId > 0 && numericUserId <= 2147483647) {
         try {
             const userCheck = await pool.query("SELECT id FROM users WHERE id = $1", [numericUserId]);
             if (userCheck.rows.length === 0) {
@@ -24,6 +26,10 @@ const createCreative = async (creative) => {
         }
     } else {
         numericUserId = null;
+    }
+
+    if (!numericUserId) {
+        numericUserId = await ensureDbUser({ id: creative.userId, email: creative.userEmail });
     }
 
     // Verify brand, project, and campaign foreign keys exist in DB to prevent FK violations
@@ -113,24 +119,46 @@ const createCreative = async (creative) => {
         }
 
         // Resilient fallback query without analysis_data
-        const fallbackQuery = `
-            INSERT INTO creatives (
-                user_id, brand_name, product_name, description, headline,
-                caption, cta, platform, target_audience, brand_tone,
-                creative_type, creative_score, estimated_ctr, engagement_score,
-                conversion_probability, virality_score, brand_id, project_id,
-                campaign_id, media_url
-            )
-            VALUES (
-                $1, $2, $3, $4, $5,
-                $6, $7, $8, $9, $10,
-                $11, $12, $13, $14, $15,
-                $16, $17, $18, $19, $20
-            )
-            RETURNING *
-        `;
-        const result = await pool.query(fallbackQuery, values.slice(0, 20));
-        return result.rows[0];
+        try {
+            const fallbackQuery = `
+                INSERT INTO creatives (
+                    user_id, brand_name, product_name, description, headline,
+                    caption, cta, platform, target_audience, brand_tone,
+                    creative_type, creative_score, estimated_ctr, engagement_score,
+                    conversion_probability, virality_score, brand_id, project_id,
+                    campaign_id, media_url
+                )
+                VALUES (
+                    $1, $2, $3, $4, $5,
+                    $6, $7, $8, $9, $10,
+                    $11, $12, $13, $14, $15,
+                    $16, $17, $18, $19, $20
+                )
+                RETURNING *
+            `;
+            const result = await pool.query(fallbackQuery, values.slice(0, 20));
+            return result.rows[0];
+        } catch (fallbackErr) {
+            console.error("createCreative fallback query failed, attempting minimal query:", fallbackErr.message);
+            // Ultra-safe minimal query
+            const minimalQuery = `
+                INSERT INTO creatives (
+                    user_id, brand_name, product_name, description, headline,
+                    caption, cta, platform, target_audience, brand_tone,
+                    creative_type, creative_score, estimated_ctr, engagement_score,
+                    conversion_probability, virality_score
+                )
+                VALUES (
+                    $1, $2, $3, $4, $5,
+                    $6, $7, $8, $9, $10,
+                    $11, $12, $13, $14, $15,
+                    $16
+                )
+                RETURNING *
+            `;
+            const minResult = await pool.query(minimalQuery, values.slice(0, 16));
+            return minResult.rows[0];
+        }
     }
 };
 

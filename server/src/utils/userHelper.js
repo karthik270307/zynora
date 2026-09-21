@@ -7,8 +7,8 @@ const pool = require("../config/db");
 const ensureDbUser = async (user = {}) => {
     let numericId = parseInt(user?.id, 10);
 
-    // 1. If valid numeric ID, verify it exists in users table
-    if (!isNaN(numericId)) {
+    // 1. If valid 32-bit numeric ID, verify it exists in users table
+    if (!isNaN(numericId) && numericId > 0 && numericId <= 2147483647) {
         try {
             const check = await pool.query("SELECT id FROM users WHERE id = $1", [numericId]);
             if (check.rows.length > 0) return check.rows[0].id;
@@ -46,6 +46,7 @@ const ensureDbUser = async (user = {}) => {
         const defaultUser = await pool.query(
             `INSERT INTO users (name, email, password_hash)
              VALUES ('Creator', 'creator@zynora.ai', 'default_creator_pass')
+             ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
              RETURNING id`
         );
         return defaultUser.rows[0].id;

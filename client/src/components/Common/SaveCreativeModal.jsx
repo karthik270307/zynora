@@ -349,7 +349,8 @@ function SaveCreativeModal({
             }
         } catch (err) {
             console.error("Save creative error:", err);
-            toast.error(err.response?.data?.message || err.message || "Failed to save creative");
+            const errMsg = err.response?.data?.error || err.response?.data?.message || err.message || "Failed to save creative";
+            toast.error(errMsg);
         } finally {
             setSaving(false);
         }

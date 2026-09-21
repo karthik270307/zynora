@@ -38,7 +38,8 @@ exports.createCreative = async (req, res) => {
             brandId: cleanBrandId,
             projectId: cleanProjectId,
             campaignId: cleanCampaignId,
-            userId: req.user.id
+            userId: req.user.id,
+            userEmail: req.user.email
         });
 
         res.status(201).json({

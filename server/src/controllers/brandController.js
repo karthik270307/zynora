@@ -4,7 +4,7 @@ const memberModel = require("../models/memberModel");
 const createBrand = async (req, res) => {
     try {
         const userId = req.user.id;
-        const brandData = { ...req.body, user_id: userId };
+        const brandData = { ...req.body, user_id: userId, user_email: req.user.email };
         
         if (!brandData.brand_name || !brandData.brand_name.trim()) {
             return res.status(400).json({ success: false, message: "Brand name is required" });
@@ -13,7 +13,7 @@ const createBrand = async (req, res) => {
         const brand = await brandModel.createBrand(brandData);
         // Automatically add creator to brand_members as BRAND_OWNER
         try {
-            await memberModel.addMember(brand.id, userId, 'BRAND_OWNER');
+            await memberModel.addMember(brand.id, brand.user_id || userId, 'BRAND_OWNER');
         } catch (memberErr) {
             console.warn("Notice: creator membership add warning:", memberErr.message);
         }
