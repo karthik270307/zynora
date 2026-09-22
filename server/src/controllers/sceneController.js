@@ -34,15 +34,15 @@ exports.generateSceneImages = async (
 
         for (let i = 0; i < scenes.length; i++) {
             const scene = scenes[i];
-            console.log(`Generating video clip for scene ${i + 1}...`);
-            const result = await sceneImageService.generateSceneVideo(scene, i + 1);
+            console.log(`Generating Gemini image for scene ${i + 1}...`);
+            const result = await sceneImageService.generateSceneImage(scene, i + 1);
 
             generatedScenes.push({
                 ...scene,
                 imagePath: result.imagePath || result.filePath,
-                imageUrl: result.imageUrl || result.videoUrl,
-                videoPath: result.videoPath || result.filePath,
-                videoUrl: result.videoUrl
+                imageUrl: result.imageUrl,
+                videoPath: result.imagePath || result.filePath,
+                videoUrl: result.imageUrl
             });
         }
 

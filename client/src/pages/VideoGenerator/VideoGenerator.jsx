@@ -116,7 +116,7 @@ function VideoGenerator() {
 
         try {
             setSceneLoading(true);
-            toast.loading("Rendering scene images via Hugging Face Flux...", { id: "scene-images" });
+            toast.loading("Rendering scene images with Gemini AI...", { id: "scene-images" });
 
             const response = await generateSceneImages(videoPlan.scenes);
 

@@ -83,13 +83,16 @@ exports.renderVideo = async (req, res) => {
 
     try {
 
-        const {
-            scenes
-        } = req.body;
+        let scenes = req.body.scenes;
 
+        // Support passing either an array of scenes or the whole videoPlan object
+        if (scenes && !Array.isArray(scenes) && Array.isArray(scenes.scenes)) {
+            scenes = scenes.scenes;
+        }
 
         if (
             !scenes ||
+            !Array.isArray(scenes) ||
             scenes.length === 0
         ) {
 

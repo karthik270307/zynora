@@ -72,7 +72,7 @@ function ImageGenerator() {
             setError("");
             setImage(null);
             setSaved(false);
-            toast.loading("Rendering visual with Hugging Face Flux...", { id: "img-gen" });
+            toast.loading("Rendering visual with Gemini AI...", { id: "img-gen" });
 
             const payload = {
                 ...form,
