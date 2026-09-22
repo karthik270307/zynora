@@ -30,25 +30,26 @@ exports.generateSceneImages = async (
         }
 
 
-        const generatedScenes = [];
+        console.log(`Generating Gemini images for ${scenes.length} scenes in parallel...`);
+        const generatedScenes = await Promise.all(
+            scenes.map(async (scene, i) => {
+                const sceneNum = scene?.sceneNumber || i + 1;
+                console.log(`Starting Gemini image for scene ${sceneNum}...`);
+                const result = await sceneImageService.generateSceneImage(scene, sceneNum);
 
-        for (let i = 0; i < scenes.length; i++) {
-            const scene = scenes[i];
-            console.log(`Generating Gemini image for scene ${i + 1}...`);
-            const result = await sceneImageService.generateSceneImage(scene, i + 1);
-
-            generatedScenes.push({
-                ...scene,
-                imagePath: result.imagePath || result.filePath,
-                imageUrl: result.dataUrl || result.imageUrl,
-                dataUrl: result.dataUrl,
-                image: result.image,
-                mimeType: result.mimeType,
-                relativeUrl: result.relativeUrl,
-                videoPath: result.imagePath || result.filePath,
-                videoUrl: result.dataUrl || result.imageUrl
-            });
-        }
+                return {
+                    ...scene,
+                    imagePath: result.imagePath || result.filePath,
+                    imageUrl: result.dataUrl || result.imageUrl,
+                    dataUrl: result.dataUrl,
+                    image: result.image,
+                    mimeType: result.mimeType,
+                    relativeUrl: result.relativeUrl,
+                    videoPath: result.imagePath || result.filePath,
+                    videoUrl: result.dataUrl || result.imageUrl
+                };
+            })
+        );
 
         res.status(200).json({
             success: true,

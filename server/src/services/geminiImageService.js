@@ -135,30 +135,34 @@ async function tryGeminiNativeImage(prompt) {
  * 2. Attempt AI generation engine with Gemini-enhanced prompt
  */
 async function tryAiEngine(enhancedPrompt) {
-    try {
-        console.log("[geminiImageService] Generating with Gemini-enhanced prompt via AI image engine...");
-        const seed = Math.floor(Math.random() * 1000000);
-        const encoded = encodeURIComponent(enhancedPrompt.slice(0, 150));
-        const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${seed}`;
+    const models = ["turbo", "flux"];
+    for (const model of models) {
+        try {
+            console.log(`[geminiImageService] Generating with Gemini-enhanced prompt via AI engine (model: ${model})...`);
+            const seed = Math.floor(Math.random() * 1000000);
+            const encoded = encodeURIComponent(enhancedPrompt.slice(0, 160));
+            const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${seed}&model=${model}`;
 
-        const res = await withTimeout(
-            axios.get(url, {
-                responseType: "arraybuffer",
-                headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                }
-            }),
-            12000
-        );
+            const res = await withTimeout(
+                axios.get(url, {
+                    responseType: "arraybuffer",
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    }
+                }),
+                18000
+            );
 
-        if (res.data && res.data.length > 5000) {
-            return {
-                buffer: Buffer.from(res.data),
-                mimeType: res.headers["content-type"] || "image/jpeg"
-            };
+            if (res.data && res.data.length > 5000) {
+                console.log(`[geminiImageService] AI engine rendered image successfully using ${model} (${res.data.length} bytes)`);
+                return {
+                    buffer: Buffer.from(res.data),
+                    mimeType: res.headers["content-type"] || "image/jpeg"
+                };
+            }
+        } catch (err) {
+            console.warn(`[geminiImageService] AI engine attempt (${model}) failed:`, err.message);
         }
-    } catch (err) {
-        console.warn("[geminiImageService] AI engine attempt failed:", err.message);
     }
     return null;
 }
@@ -168,23 +172,24 @@ async function tryAiEngine(enhancedPrompt) {
  */
 async function fetchKeywordProductPhoto(keyword) {
     try {
-        const cleanKeyword = encodeURIComponent(keyword || "product");
+        const cleanKeyword = encodeURIComponent((keyword || "product").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase());
         console.log(`[geminiImageService] Fetching dynamic real product photo for keyword: "${cleanKeyword}"...`);
-        const url = `https://loremflickr.com/1024/1024/${cleanKeyword}`;
+        const url = `https://picsum.photos/seed/${cleanKeyword}-${Date.now() % 1000}/1024/1024`;
 
         const res = await withTimeout(
             axios.get(url, {
                 responseType: "arraybuffer",
-                timeout: 10000,
+                timeout: 8000,
                 maxRedirects: 5,
                 headers: {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
                 }
             }),
-            10000
+            8000
         );
 
         if (res.data && res.data.length > 5000) {
+            console.log(`[geminiImageService] Real product photo fetched successfully (${res.data.length} bytes)`);
             return {
                 buffer: Buffer.from(res.data),
                 mimeType: res.headers["content-type"] || "image/jpeg"
