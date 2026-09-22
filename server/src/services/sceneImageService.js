@@ -1,4 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
+const { HfInference } = require("@huggingface/inference");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -79,7 +80,7 @@ Response format: {"enhancedPrompt": "...", "keyword": "..."}`
 
     // Heuristic fallback if Gemini text API is slow or unavailable
     const fallbackKw = visualPrompt.toLowerCase().replace(/[^a-z0-9]/g, " ").trim().split(" ")[0] || "product";
-    const fallbackPrompt = `Cinematic commercial widescreen video frame: ${visualPrompt}. ${cameraAngle}, dramatic studio lighting, 8k resolution, photorealistic advertisement.`;
+    const fallbackPrompt = `Photorealistic cinematic commercial widescreen frame: ${visualPrompt}. ${cameraAngle}, dramatic studio lighting, 8k resolution, hyperrealistic commercial advertisement.`;
 
     return {
         enhancedPrompt: fallbackPrompt,
@@ -133,10 +134,41 @@ async function tryGeminiNativeImage(prompt, sceneNumber) {
 }
 
 /**
- * 2. Attempt AI generation engine with Gemini-enhanced prompt (16:9 cinematic ratio)
+ * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt
+ */
+async function tryHfFluxImage(enhancedPrompt, sceneNumber) {
+    const hfToken = (process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || "").trim();
+    if (!hfToken) return null;
+
+    try {
+        console.log(`[Scene ${sceneNumber}] Generating exact scene image with FLUX.1-schnell...`);
+        const hf = new HfInference(hfToken);
+        const blob = await withTimeout(
+            hf.textToImage({
+                model: "black-forest-labs/FLUX.1-schnell",
+                inputs: enhancedPrompt
+            }),
+            22000
+        );
+
+        if (blob && blob.size > 5000) {
+            const buffer = Buffer.from(await blob.arrayBuffer());
+            console.log(`[Scene ${sceneNumber}] FLUX.1-schnell generated successfully (${buffer.length} bytes)`);
+            return {
+                buffer,
+                mimeType: blob.type || "image/jpeg"
+            };
+        }
+    } catch (e) {
+        console.warn(`[Scene ${sceneNumber}] FLUX.1-schnell attempt failed:`, e.message || e);
+    }
+    return null;
+}
+
+/**
+ * 3. Fast AI generation engine with Gemini-enhanced prompt (16:9 cinematic ratio)
  */
 async function tryAiEngine(enhancedPrompt, sceneNumber) {
-    // Try Turbo model first for fast, high-quality generation
     const models = ["turbo", "flux"];
     for (const model of models) {
         try {
@@ -170,41 +202,7 @@ async function tryAiEngine(enhancedPrompt, sceneNumber) {
 }
 
 /**
- * 3. Fetch dynamic real high-definition commercial photography matching scene keyword (16:9 widescreen)
- */
-async function fetchKeywordScenePhoto(keyword, sceneNumber) {
-    try {
-        const cleanKeyword = encodeURIComponent((keyword || "product").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase());
-        console.log(`[Scene ${sceneNumber}] Fetching dynamic commercial photo for keyword: "${cleanKeyword}"...`);
-        const url = `https://picsum.photos/seed/${cleanKeyword}-${sceneNumber}-${Date.now() % 1000}/1280/720`;
-
-        const res = await withTimeout(
-            axios.get(url, {
-                responseType: "arraybuffer",
-                timeout: 8000,
-                maxRedirects: 5,
-                headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                }
-            }),
-            8000
-        );
-
-        if (res.data && res.data.length > 5000) {
-            console.log(`[Scene ${sceneNumber}] Real scene photo fetched successfully (${res.data.length} bytes)`);
-            return {
-                buffer: Buffer.from(res.data),
-                mimeType: res.headers["content-type"] || "image/jpeg"
-            };
-        }
-    } catch (err) {
-        console.warn(`[Scene ${sceneNumber}] Keyword photo fetch failed:`, err.message);
-    }
-    return null;
-}
-
-/**
- * 4. High-contrast 16:9 SVG cinematic storyboard frame
+ * 4. High-contrast 16:9 SVG cinematic storyboard frame (tailored specifically to the scene script)
  */
 function generateDynamicSceneSvg(sceneNumber, visualPrompt, voiceoverText, cameraAngle) {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
@@ -260,26 +258,25 @@ const generateSceneImage = async (scene, sceneNumber = 1) => {
     }
 
     // 1. Enhance scene prompt & extract keywords with Gemini
-    const { enhancedPrompt, keyword, visualPrompt, voiceoverText, cameraAngle } = await enhanceScenePromptWithGemini(scene, sceneNumber);
+    const { enhancedPrompt, visualPrompt, voiceoverText, cameraAngle } = await enhanceScenePromptWithGemini(scene, sceneNumber);
     console.log(`[Scene ${sceneNumber}] Gemini Enhanced Prompt:`, enhancedPrompt);
-    console.log(`[Scene ${sceneNumber}] Keyword:`, keyword);
 
     let imageResult = null;
 
     // 2. Try native Gemini image model
     imageResult = await tryGeminiNativeImage(enhancedPrompt, sceneNumber);
 
-    // 3. Try AI image engine with Gemini prompt
+    // 3. Try FLUX.1-schnell using the Gemini-engineered visual prompt
+    if (!imageResult) {
+        imageResult = await tryHfFluxImage(enhancedPrompt, sceneNumber);
+    }
+
+    // 4. Try AI image engine with Gemini prompt
     if (!imageResult) {
         imageResult = await tryAiEngine(enhancedPrompt, sceneNumber);
     }
 
-    // 4. Try dynamic real commercial photo matching scene keyword
-    if (!imageResult) {
-        imageResult = await fetchKeywordScenePhoto(keyword, sceneNumber);
-    }
-
-    // 5. Fallback to dynamic cinematic SVG visual
+    // 5. Fallback to dynamic cinematic SVG visual (tailored to the scene script)
     if (!imageResult) {
         console.warn(`[Scene ${sceneNumber}] Using dynamic SVG scene frame fallback`);
         imageResult = generateDynamicSceneSvg(sceneNumber, visualPrompt, voiceoverText, cameraAngle);

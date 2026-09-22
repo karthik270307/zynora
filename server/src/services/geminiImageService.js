@@ -1,4 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
+const { HfInference } = require("@huggingface/inference");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
@@ -79,7 +80,7 @@ Response JSON format: {"enhancedPrompt": "...", "keyword": "..."}`
 
     // Heuristic fallback if Gemini text model is unavailable
     const cleanKw = productName.toLowerCase().replace(/[^a-z0-9]/g, " ").trim().split(" ")[0] || "product";
-    const fallbackPrompt = `Commercial product photography of ${productName} by ${brandName}. ${style} with dramatic studio lighting, sharp focus, 8k resolution, elegant composition.`;
+    const fallbackPrompt = `Photorealistic commercial product photography of ${productName} by ${brandName}. ${style} with dramatic studio lighting, sharp focus, 8k resolution, elegant composition.`;
     return {
         enhancedPrompt: fallbackPrompt,
         keyword: cleanKw,
@@ -132,7 +133,39 @@ async function tryGeminiNativeImage(prompt) {
 }
 
 /**
- * 2. Attempt AI generation engine with Gemini-enhanced prompt
+ * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt
+ */
+async function tryHfFluxImage(enhancedPrompt) {
+    const hfToken = (process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || "").trim();
+    if (!hfToken) return null;
+
+    try {
+        console.log("[geminiImageService] Generating with FLUX.1-schnell via Hugging Face...");
+        const hf = new HfInference(hfToken);
+        const blob = await withTimeout(
+            hf.textToImage({
+                model: "black-forest-labs/FLUX.1-schnell",
+                inputs: enhancedPrompt
+            }),
+            22000
+        );
+
+        if (blob && blob.size > 5000) {
+            const buffer = Buffer.from(await blob.arrayBuffer());
+            console.log(`[geminiImageService] FLUX.1-schnell generated successfully (${buffer.length} bytes)`);
+            return {
+                buffer,
+                mimeType: blob.type || "image/jpeg"
+            };
+        }
+    } catch (e) {
+        console.warn("[geminiImageService] FLUX.1-schnell attempt failed:", e.message || e);
+    }
+    return null;
+}
+
+/**
+ * 3. Attempt AI generation engine with Gemini-enhanced prompt
  */
 async function tryAiEngine(enhancedPrompt) {
     const models = ["turbo", "flux"];
@@ -163,40 +196,6 @@ async function tryAiEngine(enhancedPrompt) {
         } catch (err) {
             console.warn(`[geminiImageService] AI engine attempt (${model}) failed:`, err.message);
         }
-    }
-    return null;
-}
-
-/**
- * 3. Fetch real high-definition commercial product photo matching user's specific product keyword
- */
-async function fetchKeywordProductPhoto(keyword) {
-    try {
-        const cleanKeyword = encodeURIComponent((keyword || "product").replace(/[^a-zA-Z0-9]/g, "-").toLowerCase());
-        console.log(`[geminiImageService] Fetching dynamic real product photo for keyword: "${cleanKeyword}"...`);
-        const url = `https://picsum.photos/seed/${cleanKeyword}-${Date.now() % 1000}/1024/1024`;
-
-        const res = await withTimeout(
-            axios.get(url, {
-                responseType: "arraybuffer",
-                timeout: 8000,
-                maxRedirects: 5,
-                headers: {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-                }
-            }),
-            8000
-        );
-
-        if (res.data && res.data.length > 5000) {
-            console.log(`[geminiImageService] Real product photo fetched successfully (${res.data.length} bytes)`);
-            return {
-                buffer: Buffer.from(res.data),
-                mimeType: res.headers["content-type"] || "image/jpeg"
-            };
-        }
-    } catch (err) {
-        console.warn("[geminiImageService] Keyword photo fetch failed:", err.message);
     }
     return null;
 }
@@ -256,8 +255,8 @@ const generateMarketingImage = async (promptOrData) => {
     console.log("[geminiImageService] Starting Gemini-driven marketing image generation...");
 
     // 1. Enhance prompt and extract product keyword using Gemini
-    const { enhancedPrompt, keyword, productName, brandName, style, platform } = await enhancePromptWithGemini(promptOrData);
-    console.log(`[geminiImageService] Product: "${productName}", Keyword: "${keyword}"`);
+    const { enhancedPrompt, productName, brandName, style, platform } = await enhancePromptWithGemini(promptOrData);
+    console.log(`[geminiImageService] Product: "${productName}"`);
     console.log("[geminiImageService] Prompt crafted by Gemini:", enhancedPrompt);
 
     let imageResult = null;
@@ -265,14 +264,14 @@ const generateMarketingImage = async (promptOrData) => {
     // 2. Try native Gemini image model
     imageResult = await tryGeminiNativeImage(enhancedPrompt);
 
-    // 3. Try AI engine with the Gemini-engineered prompt
+    // 3. Try FLUX.1-schnell via Hugging Face with Gemini prompt
     if (!imageResult) {
-        imageResult = await tryAiEngine(enhancedPrompt);
+        imageResult = await tryHfFluxImage(enhancedPrompt);
     }
 
-    // 4. Try dynamic keyword-matched commercial photograph
+    // 4. Try AI engine with the Gemini-engineered prompt
     if (!imageResult) {
-        imageResult = await fetchKeywordProductPhoto(keyword);
+        imageResult = await tryAiEngine(enhancedPrompt);
     }
 
     // 5. Fallback to tailored dynamic product visual SVG if all networks fail
