@@ -1,5 +1,4 @@
 const { GoogleGenAI } = require("@google/genai");
-const { HfInference } = require("@huggingface/inference");
 const fs = require("fs");
 const path = require("path");
 
@@ -100,7 +99,8 @@ async function tryGeminiNativeImage(prompt) {
         "gemini-2.5-flash-image",
         "gemini-3.1-flash-image",
         "gemini-3.1-flash-lite-image",
-        "gemini-3-pro-image"
+        "gemini-3-pro-image",
+        "nano-banana-pro-preview"
     ];
 
     for (const model of candidateModels) {
@@ -114,7 +114,7 @@ async function tryGeminiNativeImage(prompt) {
                         responseModalities: ["TEXT", "IMAGE"]
                     }
                 }),
-                10000
+                12000
             );
 
             const parts = response.candidates?.[0]?.content?.parts || [];
@@ -135,39 +135,7 @@ async function tryGeminiNativeImage(prompt) {
 }
 
 /**
- * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt (if key present)
- */
-async function tryHfFluxImage(enhancedPrompt) {
-    const hfToken = (process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || "").trim();
-    if (!hfToken) return null;
-
-    try {
-        console.log("[geminiImageService] Generating with FLUX.1-schnell via Hugging Face...");
-        const hf = new HfInference(hfToken);
-        const blob = await withTimeout(
-            hf.textToImage({
-                model: "black-forest-labs/FLUX.1-schnell",
-                inputs: enhancedPrompt
-            }),
-            22000
-        );
-
-        if (blob && blob.size > 5000) {
-            const buffer = Buffer.from(await blob.arrayBuffer());
-            console.log(`[geminiImageService] FLUX.1-schnell generated successfully (${buffer.length} bytes)`);
-            return {
-                buffer,
-                mimeType: blob.type || "image/jpeg"
-            };
-        }
-    } catch (e) {
-        console.warn("[geminiImageService] FLUX.1-schnell attempt failed:", e.message || e);
-    }
-    return null;
-}
-
-/**
- * 3. Gemini Custom Visual Illustration: Generates a bespoke, detailed vector artwork depicting the product
+ * 2. Gemini Custom Visual Illustration: Generates a bespoke, detailed vector artwork depicting the product
  */
 async function generateGeminiProductIllustration(productName, brandName, description, style) {
     console.log(`[geminiImageService] Generating custom vector product illustration directly with Gemini AI...`);
@@ -244,7 +212,7 @@ Requirements:
 }
 
 /**
- * Main Image Generation Engine driven by Gemini
+ * Main Image Generation Engine driven by Gemini AI strictly
  */
 const generateMarketingImage = async (promptOrData) => {
     console.log("[geminiImageService] Starting Gemini-driven marketing image generation...");
@@ -259,12 +227,7 @@ const generateMarketingImage = async (promptOrData) => {
     // 2. Try native Gemini image model
     imageResult = await tryGeminiNativeImage(enhancedPrompt);
 
-    // 3. Try FLUX.1-schnell via Hugging Face with Gemini prompt (if key present)
-    if (!imageResult) {
-        imageResult = await tryHfFluxImage(enhancedPrompt);
-    }
-
-    // 4. Gemini Custom Visual Illustration: Generates a bespoke, detailed vector artwork depicting the product
+    // 3. Gemini Custom Visual Illustration: Generates a bespoke, detailed vector artwork depicting the product
     if (!imageResult) {
         imageResult = await generateGeminiProductIllustration(productName, brandName, description, style);
     }

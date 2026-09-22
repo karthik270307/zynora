@@ -1,5 +1,4 @@
 const { GoogleGenAI } = require("@google/genai");
-const { HfInference } = require("@huggingface/inference");
 const fs = require("fs");
 const path = require("path");
 const ffmpeg = require("fluent-ffmpeg");
@@ -84,7 +83,8 @@ async function tryGeminiNativeImage(prompt, sceneNumber) {
         "gemini-2.5-flash-image",
         "gemini-3.1-flash-image",
         "gemini-3.1-flash-lite-image",
-        "gemini-3-pro-image"
+        "gemini-3-pro-image",
+        "nano-banana-pro-preview"
     ];
 
     for (const model of candidateModels) {
@@ -98,7 +98,7 @@ async function tryGeminiNativeImage(prompt, sceneNumber) {
                         responseModalities: ["TEXT", "IMAGE"]
                     }
                 }),
-                10000
+                12000
             );
 
             const parts = response.candidates?.[0]?.content?.parts || [];
@@ -119,42 +119,10 @@ async function tryGeminiNativeImage(prompt, sceneNumber) {
 }
 
 /**
- * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt (if key present)
- */
-async function tryHfFluxImage(enhancedPrompt, sceneNumber) {
-    const hfToken = (process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || "").trim();
-    if (!hfToken) return null;
-
-    try {
-        console.log(`[Scene ${sceneNumber}] Generating scene image with FLUX.1-schnell via Hugging Face...`);
-        const hf = new HfInference(hfToken);
-        const blob = await withTimeout(
-            hf.textToImage({
-                model: "black-forest-labs/FLUX.1-schnell",
-                inputs: enhancedPrompt
-            }),
-            22000
-        );
-
-        if (blob && blob.size > 5000) {
-            const buffer = Buffer.from(await blob.arrayBuffer());
-            console.log(`[Scene ${sceneNumber}] FLUX.1-schnell generated successfully (${buffer.length} bytes)`);
-            return {
-                buffer,
-                mimeType: blob.type || "image/jpeg"
-            };
-        }
-    } catch (e) {
-        console.warn(`[Scene ${sceneNumber}] FLUX.1-schnell attempt failed:`, e.message || e);
-    }
-    return null;
-}
-
-/**
- * 3. Gemini Custom Visual Illustration: Generates a bespoke, detailed 16:9 vector artwork depicting the exact scene
+ * 2. Gemini Custom Scene Illustration: Gemini AI draws a bespoke, detailed 16:9 vector artwork depicting the exact scene
  */
 async function generateGeminiSceneIllustration(visualPrompt, cameraAngle, voiceoverText, sceneNumber) {
-    console.log(`[Scene ${sceneNumber}] Generating custom scene illustration directly with Gemini AI...`);
+    console.log(`[Scene ${sceneNumber}] Generating custom scene artwork directly with Gemini AI...`);
     const models = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
 
     const prompt = `You are an elite digital artist and commercial illustrator.
@@ -227,7 +195,7 @@ Requirements:
 }
 
 /**
- * Generate a visual scene image using Gemini-driven multi-tiered pipeline
+ * Generate a visual scene image using Gemini AI strictly
  */
 const generateSceneImage = async (scene, sceneNumber = 1) => {
     console.log(`[Video Generator] Starting Gemini-driven image generation for Scene ${sceneNumber}...`);
@@ -243,15 +211,10 @@ const generateSceneImage = async (scene, sceneNumber = 1) => {
 
     let imageResult = null;
 
-    // 2. Try native Gemini image model
+    // 2. Try native Gemini multimodal image model
     imageResult = await tryGeminiNativeImage(enhancedPrompt, sceneNumber);
 
-    // 3. Try FLUX.1-schnell via Hugging Face using the Gemini-engineered visual prompt (if key present)
-    if (!imageResult) {
-        imageResult = await tryHfFluxImage(enhancedPrompt, sceneNumber);
-    }
-
-    // 4. Gemini Custom Visual Illustration: Generates a bespoke, detailed 16:9 vector artwork depicting the exact scene
+    // 3. Gemini Custom Visual Illustration: Gemini AI directly draws the bespoke, detailed 16:9 vector artwork depicting the exact scene
     if (!imageResult) {
         imageResult = await generateGeminiSceneIllustration(visualPrompt, cameraAngle, voiceoverText, sceneNumber);
     }
