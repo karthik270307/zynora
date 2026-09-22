@@ -24,6 +24,16 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+const resolveMediaUrl = (url, b64, mime = "image/jpeg") => {
+    if (b64) return `data:${mime};base64,${b64}`;
+    if (!url) return "";
+    if (url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:")) {
+        return url;
+    }
+    const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    return `${backendUrl.replace(/\/$/, "")}/${url.replace(/^\//, "")}`;
+};
+
 function VideoGenerator() {
     const { activeBrand, brands } = useBrand();
     const [selectedBrandId, setSelectedBrandId] = useState("");
@@ -438,7 +448,7 @@ function VideoGenerator() {
                                                 {saving ? "Saving..." : saved ? "Saved ✓" : "Save to Workspace"}
                                             </button>
                                             <a
-                                                href={videoUrl}
+                                                href={resolveMediaUrl(videoUrl)}
                                                 download="zynora-video.mp4"
                                                 className="text-xs font-semibold text-[var(--text-primary)] hover:underline flex items-center gap-1"
                                             >
@@ -447,7 +457,7 @@ function VideoGenerator() {
                                         </div>
                                     </div>
                                     <div className="rounded-lg overflow-hidden border border-[var(--border)] bg-black max-h-80 flex items-center justify-center">
-                                        <video src={videoUrl} controls className="max-h-80 w-auto" />
+                                        <video src={resolveMediaUrl(videoUrl)} controls className="max-h-80 w-auto" />
                                     </div>
                                 </div>
                             )}
@@ -555,9 +565,17 @@ function VideoGenerator() {
                                                     </p>
                                                 </div>
 
-                                                {scene?.imageUrl && (
+                                                {(scene?.imageUrl || scene?.image || scene?.dataUrl) && (
                                                     <div className="pt-2">
-                                                        <img src={scene.imageUrl} alt={`Scene ${idx + 1}`} className="h-32 w-full object-cover rounded-lg border border-[var(--border)]" />
+                                                        <img
+                                                            src={resolveMediaUrl(scene.imageUrl || scene.dataUrl, scene.image, scene.mimeType)}
+                                                            alt={`Scene ${scene?.sceneNumber || idx + 1}`}
+                                                            className="h-32 w-full object-cover rounded-lg border border-[var(--border)] shadow-xs"
+                                                            loading="lazy"
+                                                            onError={(e) => {
+                                                                console.warn(`Image failed to load for scene ${idx + 1}`);
+                                                            }}
+                                                        />
                                                     </div>
                                                 )}
                                             </div>

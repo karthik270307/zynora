@@ -289,9 +289,15 @@ const generateSceneImage = async (scene, sceneNumber = 1) => {
     fs.writeFileSync(frameFilePath, imageResult.buffer);
     console.log(`[Scene ${sceneNumber}] Saved scene image: ${frameFilePath} (${imageResult.buffer.length} bytes)`);
 
+    const imageBase64 = imageResult.buffer.toString("base64");
+    const dataUrl = `data:${imageResult.mimeType || "image/jpeg"};base64,${imageBase64}`;
+
     return {
         imagePath: frameFilePath,
-        imageUrl: `/generated-scenes/${frameFileName}`,
+        imageUrl: dataUrl,
+        relativeUrl: `/generated-scenes/${frameFileName}`,
+        image: imageBase64,
+        dataUrl,
         filePath: frameFilePath,
         mimeType: imageResult.mimeType,
         sceneNumber

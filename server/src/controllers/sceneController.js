@@ -40,9 +40,13 @@ exports.generateSceneImages = async (
             generatedScenes.push({
                 ...scene,
                 imagePath: result.imagePath || result.filePath,
-                imageUrl: result.imageUrl,
+                imageUrl: result.dataUrl || result.imageUrl,
+                dataUrl: result.dataUrl,
+                image: result.image,
+                mimeType: result.mimeType,
+                relativeUrl: result.relativeUrl,
                 videoPath: result.imagePath || result.filePath,
-                videoUrl: result.imageUrl
+                videoUrl: result.dataUrl || result.imageUrl
             });
         }
 
