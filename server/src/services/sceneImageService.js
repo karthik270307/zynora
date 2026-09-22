@@ -1,6 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
 const { HfInference } = require("@huggingface/inference");
-const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const ffmpeg = require("fluent-ffmpeg");
@@ -23,16 +22,6 @@ const withTimeout = (promise, ms) => {
     ]);
 };
 
-function escapeXml(unsafe) {
-    if (!unsafe) return "";
-    return String(unsafe)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&apos;");
-}
-
 /**
  * Uses Gemini to extract clean scene keywords and craft a cinematic commercial visual prompt
  */
@@ -52,22 +41,20 @@ async function enhanceScenePromptWithGemini(scene, sceneNumber = 1) {
                     contents: `You are an expert commercial video director and visual artist. Given this storyboard scene:
 ${promptText}
 
-Respond in valid JSON with exactly two fields:
-1. "enhancedPrompt": A rich 25-word visual prompt for commercial cinematic video frame generation (focus on subject, lighting, atmosphere, and 16:9 widescreen composition).
-2. "keyword": 1 or 2 lowercase English nouns identifying the primary visual subject of this scene (e.g. "smartphone", "running shoes", "sports car", "coffee cup", "fashion model", "city skyline").
-Response format: {"enhancedPrompt": "...", "keyword": "..."}`
+Respond in valid JSON with exactly one field:
+"enhancedPrompt": A rich 25-word visual prompt for commercial cinematic video frame generation (focus on subject, lighting, atmosphere, and 16:9 widescreen composition).
+Response format: {"enhancedPrompt": "..."}`
                 }),
-                5000
+                6000
             );
 
             const text = response?.text?.trim();
             if (text) {
                 const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
                 const parsed = JSON.parse(cleaned);
-                if (parsed.enhancedPrompt && parsed.keyword) {
+                if (parsed.enhancedPrompt) {
                     return {
                         enhancedPrompt: parsed.enhancedPrompt,
-                        keyword: parsed.keyword.toLowerCase().replace(/[^a-z0-9, ]/g, "").trim() || "commercial",
                         visualPrompt,
                         voiceoverText,
                         cameraAngle,
@@ -78,13 +65,10 @@ Response format: {"enhancedPrompt": "...", "keyword": "..."}`
         } catch (_) {}
     }
 
-    // Heuristic fallback if Gemini text API is slow or unavailable
-    const fallbackKw = visualPrompt.toLowerCase().replace(/[^a-z0-9]/g, " ").trim().split(" ")[0] || "product";
     const fallbackPrompt = `Photorealistic cinematic commercial widescreen frame: ${visualPrompt}. ${cameraAngle}, dramatic studio lighting, 8k resolution, hyperrealistic commercial advertisement.`;
 
     return {
         enhancedPrompt: fallbackPrompt,
-        keyword: fallbackKw,
         visualPrompt,
         voiceoverText,
         cameraAngle,
@@ -93,13 +77,14 @@ Response format: {"enhancedPrompt": "...", "keyword": "..."}`
 }
 
 /**
- * 1. Attempt native Gemini image generation models
+ * 1. Attempt native Gemini multimodal image generation models (if quota/billing enabled)
  */
 async function tryGeminiNativeImage(prompt, sceneNumber) {
     const candidateModels = [
+        "gemini-2.5-flash-image",
         "gemini-3.1-flash-image",
         "gemini-3.1-flash-lite-image",
-        "gemini-2.5-flash-image"
+        "gemini-3-pro-image"
     ];
 
     for (const model of candidateModels) {
@@ -134,14 +119,14 @@ async function tryGeminiNativeImage(prompt, sceneNumber) {
 }
 
 /**
- * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt
+ * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt (if key present)
  */
 async function tryHfFluxImage(enhancedPrompt, sceneNumber) {
     const hfToken = (process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || "").trim();
     if (!hfToken) return null;
 
     try {
-        console.log(`[Scene ${sceneNumber}] Generating exact scene image with FLUX.1-schnell...`);
+        console.log(`[Scene ${sceneNumber}] Generating scene image with FLUX.1-schnell via Hugging Face...`);
         const hf = new HfInference(hfToken);
         const blob = await withTimeout(
             hf.textToImage({
@@ -166,82 +151,77 @@ async function tryHfFluxImage(enhancedPrompt, sceneNumber) {
 }
 
 /**
- * 3. Fast AI generation engine with Gemini-enhanced prompt (16:9 cinematic ratio)
+ * 3. Gemini Custom Visual Illustration: Generates a bespoke, detailed 16:9 vector artwork depicting the exact scene
  */
-async function tryAiEngine(enhancedPrompt, sceneNumber) {
-    const models = ["turbo", "flux"];
+async function generateGeminiSceneIllustration(visualPrompt, cameraAngle, voiceoverText, sceneNumber) {
+    console.log(`[Scene ${sceneNumber}] Generating custom scene illustration directly with Gemini AI...`);
+    const models = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
+
+    const prompt = `You are an elite digital artist and commercial illustrator.
+Generate a stunning, highly detailed, beautiful 16:9 widescreen SVG illustration depicting this exact commercial storyboard scene:
+Scene: "${visualPrompt}".
+Camera Angle: "${cameraAngle}".
+Voiceover: "${voiceoverText}".
+
+Requirements:
+1. Dimensions: width="1280" height="720" viewBox="0 0 1280 720"
+2. Style: Premium modern commercial advertisement vector artwork. Use rich gradients, radial glows, drop shadows, highlights, and accurate geometric and curved shapes to depict the scene subject (the product, the character/hand, the environment, and atmospheric lighting).
+3. Do NOT include placeholder boxes or generic text cards. Actually draw the scene elements with SVG paths, rects, circles, defs, linearGradient, and radialGradient.
+4. Output ONLY the raw SVG code starting with <svg and ending with </svg>. No markdown formatting, no backticks, no explanations.`;
+
     for (const model of models) {
         try {
-            console.log(`[Scene ${sceneNumber}] Generating cinematic 16:9 frame via AI image engine (model: ${model})...`);
-            const seed = Math.floor(Math.random() * 1000000);
-            const encoded = encodeURIComponent(enhancedPrompt.slice(0, 160));
-            const url = `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&nologo=true&seed=${seed}&model=${model}`;
-
-            const res = await withTimeout(
-                axios.get(url, {
-                    responseType: "arraybuffer",
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    }
+            const response = await withTimeout(
+                ai.models.generateContent({
+                    model,
+                    contents: prompt
                 }),
                 18000
             );
 
-            if (res.data && res.data.length > 5000) {
-                console.log(`[Scene ${sceneNumber}] AI image engine rendered frame successfully using ${model} (${res.data.length} bytes)`);
-                return {
-                    buffer: Buffer.from(res.data),
-                    mimeType: res.headers["content-type"] || "image/jpeg"
-                };
+            const text = response?.text?.trim();
+            if (text && text.includes("<svg") && text.includes("</svg>")) {
+                const startIndex = text.indexOf("<svg");
+                const endIndex = text.lastIndexOf("</svg>") + 6;
+                const svgContent = text.slice(startIndex, endIndex);
+
+                if (svgContent.length > 500) {
+                    console.log(`[Scene ${sceneNumber}] Gemini generated custom vector illustration successfully (${svgContent.length} bytes)`);
+                    return {
+                        buffer: Buffer.from(svgContent, "utf-8"),
+                        mimeType: "image/svg+xml"
+                    };
+                }
             }
         } catch (err) {
-            console.warn(`[Scene ${sceneNumber}] AI image engine attempt (${model}) failed:`, err.message);
+            console.warn(`[Scene ${sceneNumber}] Gemini illustration with ${model} failed:`, err.message);
         }
     }
-    return null;
-}
 
-/**
- * 4. High-contrast 16:9 SVG cinematic storyboard frame (tailored specifically to the scene script)
- */
-function generateDynamicSceneSvg(sceneNumber, visualPrompt, voiceoverText, cameraAngle) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+    // High-contrast clean branded fallback if model times out
+    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
         <defs>
-            <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#090d16" />
-                <stop offset="50%" stop-color="#0f172a" />
+            <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#0a0f1d" />
+                <stop offset="50%" stop-color="#111827" />
                 <stop offset="100%" stop-color="#0284c7" />
             </linearGradient>
-            <radialGradient id="spot" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
-                <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+            <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35" />
+                <stop offset="100%" stop-color="#000" stop-opacity="0" />
             </radialGradient>
         </defs>
-
-        <rect width="1280" height="720" fill="url(#bgGrad)" />
-        <circle cx="640" cy="360" r="340" fill="url(#spot)" />
-
-        <rect x="80" y="60" width="1120" height="600" rx="24" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
-
-        <rect x="120" y="100" width="220" height="38" rx="19" fill="#0284c7" />
-        <text x="230" y="125" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="800" letter-spacing="2" text-anchor="middle">SCENE ${sceneNumber} • STORYBOARD</text>
-
-        <rect x="940" y="100" width="220" height="38" rx="19" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.2)" />
-        <text x="1050" y="125" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="700" letter-spacing="1" text-anchor="middle">${escapeXml(cameraAngle || "Medium Shot")}</text>
-
-        <circle cx="640" cy="300" r="60" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5" />
-        <polygon points="632,282 658,300 632,318" fill="#38bdf8" />
-
-        <text x="640" y="410" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="700" text-anchor="middle">Commercial Visual Composition</text>
-        <text x="640" y="450" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="16" text-anchor="middle">${escapeXml(String(visualPrompt || '').slice(0, 100))}</text>
-
-        ${voiceoverText ? `<text x="640" y="520" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-style="italic" text-anchor="middle">VO: "${escapeXml(String(voiceoverText).slice(0, 110))}"</text>` : ''}
-
-        <text x="640" y="620" fill="#64748b" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="2" text-anchor="middle">ZYNORA AI • COMMERCIAL VIDEO GENERATOR</text>
+        <rect width="1280" height="720" fill="url(#bg)" />
+        <circle cx="640" cy="360" r="320" fill="url(#glow)" />
+        <rect x="100" y="80" width="1080" height="560" rx="24" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <rect x="140" y="120" width="220" height="38" rx="19" fill="#0284c7" />
+        <text x="250" y="145" fill="#fff" font-family="system-ui, sans-serif" font-size="14" font-weight="800" letter-spacing="2" text-anchor="middle">SCENE ${sceneNumber} • ZYNORA</text>
+        <text x="640" y="340" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="26" font-weight="700" text-anchor="middle">Commercial Visual Composition</text>
+        <text x="640" y="400" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="16" text-anchor="middle">${String(visualPrompt || '').slice(0, 100).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text>
     </svg>`;
 
     return {
-        buffer: Buffer.from(svg),
+        buffer: Buffer.from(fallbackSvg, "utf-8"),
         mimeType: "image/svg+xml"
     };
 }
@@ -257,7 +237,7 @@ const generateSceneImage = async (scene, sceneNumber = 1) => {
         fs.mkdirSync(scenesDirectory, { recursive: true });
     }
 
-    // 1. Enhance scene prompt & extract keywords with Gemini
+    // 1. Enhance scene prompt with Gemini
     const { enhancedPrompt, visualPrompt, voiceoverText, cameraAngle } = await enhanceScenePromptWithGemini(scene, sceneNumber);
     console.log(`[Scene ${sceneNumber}] Gemini Enhanced Prompt:`, enhancedPrompt);
 
@@ -266,20 +246,14 @@ const generateSceneImage = async (scene, sceneNumber = 1) => {
     // 2. Try native Gemini image model
     imageResult = await tryGeminiNativeImage(enhancedPrompt, sceneNumber);
 
-    // 3. Try FLUX.1-schnell using the Gemini-engineered visual prompt
+    // 3. Try FLUX.1-schnell via Hugging Face using the Gemini-engineered visual prompt (if key present)
     if (!imageResult) {
         imageResult = await tryHfFluxImage(enhancedPrompt, sceneNumber);
     }
 
-    // 4. Try AI image engine with Gemini prompt
+    // 4. Gemini Custom Visual Illustration: Generates a bespoke, detailed 16:9 vector artwork depicting the exact scene
     if (!imageResult) {
-        imageResult = await tryAiEngine(enhancedPrompt, sceneNumber);
-    }
-
-    // 5. Fallback to dynamic cinematic SVG visual (tailored to the scene script)
-    if (!imageResult) {
-        console.warn(`[Scene ${sceneNumber}] Using dynamic SVG scene frame fallback`);
-        imageResult = generateDynamicSceneSvg(sceneNumber, visualPrompt, voiceoverText, cameraAngle);
+        imageResult = await generateGeminiSceneIllustration(visualPrompt, cameraAngle, voiceoverText, sceneNumber);
     }
 
     const timestamp = Date.now();

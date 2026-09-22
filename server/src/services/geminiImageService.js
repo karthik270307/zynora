@@ -1,6 +1,5 @@
 const { GoogleGenAI } = require("@google/genai");
 const { HfInference } = require("@huggingface/inference");
-const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
@@ -71,7 +70,8 @@ Response JSON format: {"enhancedPrompt": "...", "keyword": "..."}`
                         productName,
                         brandName,
                         style,
-                        platform
+                        platform,
+                        description: promptOrData.description || inputDescription
                     };
                 }
             }
@@ -87,7 +87,8 @@ Response JSON format: {"enhancedPrompt": "...", "keyword": "..."}`
         productName,
         brandName,
         style,
-        platform
+        platform,
+        description: promptOrData.description || inputDescription
     };
 }
 
@@ -96,9 +97,10 @@ Response JSON format: {"enhancedPrompt": "...", "keyword": "..."}`
  */
 async function tryGeminiNativeImage(prompt) {
     const candidateModels = [
+        "gemini-2.5-flash-image",
         "gemini-3.1-flash-image",
         "gemini-3.1-flash-lite-image",
-        "gemini-2.5-flash-image"
+        "gemini-3-pro-image"
     ];
 
     for (const model of candidateModels) {
@@ -133,7 +135,7 @@ async function tryGeminiNativeImage(prompt) {
 }
 
 /**
- * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt
+ * 2. High-Fidelity FLUX.1 generation via Hugging Face using the Gemini-crafted visual prompt (if key present)
  */
 async function tryHfFluxImage(enhancedPrompt) {
     const hfToken = (process.env.HUGGINGFACE_API_KEY || process.env.HF_TOKEN || "").trim();
@@ -165,85 +167,78 @@ async function tryHfFluxImage(enhancedPrompt) {
 }
 
 /**
- * 3. Attempt AI generation engine with Gemini-enhanced prompt
+ * 3. Gemini Custom Visual Illustration: Generates a bespoke, detailed vector artwork depicting the product
  */
-async function tryAiEngine(enhancedPrompt) {
-    const models = ["turbo", "flux"];
+async function generateGeminiProductIllustration(productName, brandName, description, style) {
+    console.log(`[geminiImageService] Generating custom vector product illustration directly with Gemini AI...`);
+    const models = ["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash"];
+
+    const prompt = `You are an elite digital artist and commercial product illustrator.
+Generate a stunning, highly detailed, beautiful 1:1 square SVG illustration depicting this commercial product:
+Product Name: "${productName}"
+Brand: "${brandName}"
+Description: "${description}"
+Style: "${style}"
+
+Requirements:
+1. Dimensions: width="1024" height="1024" viewBox="0 0 1024 1024"
+2. Style: Premium modern commercial advertisement vector artwork. Use rich gradients, radial glows, drop shadows, highlights, and accurate geometric and curved shapes to depict the product in dramatic studio lighting.
+3. Do NOT include placeholder boxes or generic text. Actually draw the product with SVG paths, rects, circles, defs, linearGradient, and radialGradient.
+4. Output ONLY the raw SVG code starting with <svg and ending with </svg>. No markdown formatting, no backticks, no explanations.`;
+
     for (const model of models) {
         try {
-            console.log(`[geminiImageService] Generating with Gemini-enhanced prompt via AI engine (model: ${model})...`);
-            const seed = Math.floor(Math.random() * 1000000);
-            const encoded = encodeURIComponent(enhancedPrompt.slice(0, 160));
-            const url = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${seed}&model=${model}`;
-
-            const res = await withTimeout(
-                axios.get(url, {
-                    responseType: "arraybuffer",
-                    headers: {
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    }
+            const response = await withTimeout(
+                ai.models.generateContent({
+                    model,
+                    contents: prompt
                 }),
                 18000
             );
 
-            if (res.data && res.data.length > 5000) {
-                console.log(`[geminiImageService] AI engine rendered image successfully using ${model} (${res.data.length} bytes)`);
-                return {
-                    buffer: Buffer.from(res.data),
-                    mimeType: res.headers["content-type"] || "image/jpeg"
-                };
+            const text = response?.text?.trim();
+            if (text && text.includes("<svg") && text.includes("</svg>")) {
+                const startIndex = text.indexOf("<svg");
+                const endIndex = text.lastIndexOf("</svg>") + 6;
+                const svgContent = text.slice(startIndex, endIndex);
+
+                if (svgContent.length > 500) {
+                    console.log(`[geminiImageService] Gemini generated custom vector illustration successfully (${svgContent.length} bytes)`);
+                    return {
+                        buffer: Buffer.from(svgContent, "utf-8"),
+                        mimeType: "image/svg+xml"
+                    };
+                }
             }
         } catch (err) {
-            console.warn(`[geminiImageService] AI engine attempt (${model}) failed:`, err.message);
+            console.warn(`[geminiImageService] Gemini illustration with ${model} failed:`, err.message);
         }
     }
-    return null;
-}
 
-/**
- * 4. Dynamic SVG visual tailored specifically to the requested product if offline
- */
-function generateDynamicProductSvg(productName, brandName, description, style, platform) {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+    // High-contrast clean branded fallback if model times out
+    const fallbackSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
         <defs>
-            <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stop-color="#090d16" />
-                <stop offset="40%" stop-color="#0f172a" />
+                <stop offset="50%" stop-color="#0f172a" />
                 <stop offset="100%" stop-color="#0284c7" />
             </linearGradient>
             <radialGradient id="glow" cx="50%" cy="45%" r="45%">
                 <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35" />
                 <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
             </radialGradient>
-            <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="rgba(255, 255, 255, 0.12)" />
-                <stop offset="100%" stop-color="rgba(255, 255, 255, 0.03)" />
-            </linearGradient>
         </defs>
-
-        <rect width="1024" height="1024" fill="url(#bgGrad)" />
+        <rect width="1024" height="1024" fill="url(#bg)" />
         <circle cx="512" cy="460" r="380" fill="url(#glow)" />
-
-        <rect x="160" y="200" width="704" height="580" rx="32" fill="url(#cardGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
-
+        <rect x="160" y="200" width="704" height="580" rx="32" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" />
         <rect x="362" y="240" width="300" height="46" rx="23" fill="#0284c7" />
-        <text x="512" y="270" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="800" letter-spacing="3" text-anchor="middle" text-transform="uppercase">${escapeXml(brandName)}</text>
-
-        <circle cx="512" cy="440" r="100" fill="#0f172a" stroke="#38bdf8" stroke-width="3" />
-        <text x="512" y="455" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="44" font-weight="900" text-anchor="middle">★</text>
-
-        <text x="512" y="600" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="800" text-anchor="middle" letter-spacing="-0.5">${escapeXml(productName)}</text>
-        <text x="512" y="645" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="400" text-anchor="middle">${escapeXml(String(description || '').slice(0, 75))}</text>
-
-        <rect x="220" y="690" width="584" height="1" fill="rgba(255,255,255,0.1)" />
-        <text x="320" y="730" fill="#38bdf8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" text-anchor="middle">Style: ${escapeXml(style)}</text>
-        <text x="704" y="730" fill="#c084fc" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="600" text-anchor="middle">Platform: ${escapeXml(platform)}</text>
-
-        <text x="512" y="830" fill="#64748b" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="2" text-anchor="middle">ZYNORA AI • COMMERCIAL ADVERTISEMENT STUDIO</text>
+        <text x="512" y="270" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="800" letter-spacing="3" text-anchor="middle" text-transform="uppercase">${escapeXml(brandName)}</text>
+        <text x="512" y="520" fill="#ffffff" font-family="system-ui, sans-serif" font-size="34" font-weight="800" text-anchor="middle">${escapeXml(productName)}</text>
+        <text x="512" y="580" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="16" text-anchor="middle">${escapeXml(String(description || '').slice(0, 75))}</text>
     </svg>`;
 
     return {
-        buffer: Buffer.from(svg),
+        buffer: Buffer.from(fallbackSvg, "utf-8"),
         mimeType: "image/svg+xml"
     };
 }
@@ -254,8 +249,8 @@ function generateDynamicProductSvg(productName, brandName, description, style, p
 const generateMarketingImage = async (promptOrData) => {
     console.log("[geminiImageService] Starting Gemini-driven marketing image generation...");
 
-    // 1. Enhance prompt and extract product keyword using Gemini
-    const { enhancedPrompt, productName, brandName, style, platform } = await enhancePromptWithGemini(promptOrData);
+    // 1. Enhance prompt using Gemini
+    const { enhancedPrompt, productName, brandName, style, description } = await enhancePromptWithGemini(promptOrData);
     console.log(`[geminiImageService] Product: "${productName}"`);
     console.log("[geminiImageService] Prompt crafted by Gemini:", enhancedPrompt);
 
@@ -264,20 +259,14 @@ const generateMarketingImage = async (promptOrData) => {
     // 2. Try native Gemini image model
     imageResult = await tryGeminiNativeImage(enhancedPrompt);
 
-    // 3. Try FLUX.1-schnell via Hugging Face with Gemini prompt
+    // 3. Try FLUX.1-schnell via Hugging Face with Gemini prompt (if key present)
     if (!imageResult) {
         imageResult = await tryHfFluxImage(enhancedPrompt);
     }
 
-    // 4. Try AI engine with the Gemini-engineered prompt
+    // 4. Gemini Custom Visual Illustration: Generates a bespoke, detailed vector artwork depicting the product
     if (!imageResult) {
-        imageResult = await tryAiEngine(enhancedPrompt);
-    }
-
-    // 5. Fallback to tailored dynamic product visual SVG if all networks fail
-    if (!imageResult) {
-        console.warn("[geminiImageService] Using tailored dynamic product visual fallback");
-        imageResult = generateDynamicProductSvg(productName, brandName, enhancedPrompt, style, platform);
+        imageResult = await generateGeminiProductIllustration(productName, brandName, description, style);
     }
 
     // Save to generated-images directory
