@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBrand } from '../../context/BrandContext';
 import { Plus, ArrowLeft, CheckCircle2, CircleDashed, PauseCircle, Archive, Trash2, Edit2, PlayCircle, BarChart3, LayoutDashboard, Target, Sparkles, Image as ImageIcon, Video } from 'lucide-react';
@@ -36,13 +36,10 @@ function ProjectDetail() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("zynora_token");
-            const headers = { Authorization: `Bearer ${token}` };
-            
             const [projResult, campResult, creativeResult] = await Promise.allSettled([
-                axios.get(`${import.meta.env.VITE_API_URL}/api/projects/${id}`, { headers }),
-                axios.get(`${import.meta.env.VITE_API_URL}/api/projects/${id}/campaigns`, { headers }),
-                axios.get(`${import.meta.env.VITE_API_URL}/api/creatives`, { headers })
+                api.get(`/api/projects/${id}`),
+                api.get(`/api/projects/${id}/campaigns`),
+                api.get('/api/creatives')
             ]);
             
             if (projResult.status === 'fulfilled' && projResult.value.data.success) {
@@ -117,19 +114,16 @@ function ProjectDetail() {
         e.preventDefault();
         try {
             setSubmitting(true);
-            const token = localStorage.getItem('zynora_token');
-            const headers = { Authorization: `Bearer ${token}` };
-            
             const payload = {
                 ...formData,
                 budget: formData.budget ? parseFloat(formData.budget) : null
             };
             
             if (isEditing) {
-                await axios.put(`${import.meta.env.VITE_API_URL}/api/campaigns/${editingId}`, payload, { headers });
+                await api.put(`/api/campaigns/${editingId}`, payload);
                 toast.success('Campaign updated successfully');
             } else {
-                await axios.post(`${import.meta.env.VITE_API_URL}/api/projects/${id}/campaigns`, payload, { headers });
+                await api.post(`/api/projects/${id}/campaigns`, payload);
                 toast.success('Campaign created successfully');
             }
             
@@ -145,10 +139,7 @@ function ProjectDetail() {
     const handleDelete = async (campaignId) => {
         if (!window.confirm("Are you sure you want to delete this campaign? Associated creatives may lose context.")) return;
         try {
-            const token = localStorage.getItem('zynora_token');
-            await axios.delete(`${import.meta.env.VITE_API_URL}/api/campaigns/${campaignId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.delete(`/api/campaigns/${campaignId}`);
             toast.success('Campaign deleted successfully');
             fetchData();
         } catch (error) {

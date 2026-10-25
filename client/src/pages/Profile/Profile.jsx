@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { User, Mail, Shield, Save } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -21,10 +21,7 @@ function Profile() {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const token = localStorage.getItem("zynora_token");
-                const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/auth/profile`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await api.get('/api/auth/profile');
                 if (response.data.success) {
                     setProfile({
                         name: response.data.data.name,
@@ -43,11 +40,7 @@ function Profile() {
         e.preventDefault();
         try {
             setLoading(true);
-            const token = localStorage.getItem("zynora_token");
-            const response = await axios.put(`${import.meta.env.VITE_API_URL}/api/auth/profile`, 
-                { name: profile.name },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const response = await api.put('/api/auth/profile', { name: profile.name });
 
             if (response.data.success) {
                 toast.success("Profile updated successfully");
@@ -70,11 +63,7 @@ function Profile() {
 
         try {
             setLoading(true);
-            const token = localStorage.getItem("zynora_token");
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/auth/change-password`, 
-                passwordForm,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const response = await api.post('/api/auth/change-password', passwordForm);
 
             if (response.data.success) {
                 toast.success("Password changed successfully");

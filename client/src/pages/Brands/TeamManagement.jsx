@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../../services/api";
 import { Plus, Trash2, Shield, Users, Mail, UserCheck, Calendar, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -13,10 +13,7 @@ function TeamManagement({ brandId, userRole }) {
     const loadMembers = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("zynora_token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/members/${brandId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.get(`/api/members/${brandId}`);
             if (res.data.success) {
                 setMembers(res.data.members);
             }
@@ -40,12 +37,7 @@ function TeamManagement({ brandId, userRole }) {
 
         try {
             setSubmitting(true);
-            const token = localStorage.getItem("zynora_token");
-            const res = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/members/${brandId}`,
-                { email, role },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await api.post(`/api/members/${brandId}`, { email, role });
 
             if (res.data.success) {
                 toast.success(res.data.message || "Team member added successfully");
@@ -63,12 +55,7 @@ function TeamManagement({ brandId, userRole }) {
 
     const handleUpdateRole = async (memberId, newRole) => {
         try {
-            const token = localStorage.getItem("zynora_token");
-            const res = await axios.put(
-                `${import.meta.env.VITE_API_URL}/api/members/${brandId}/${memberId}/role`,
-                { role: newRole },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await api.put(`/api/members/${brandId}/${memberId}/role`, { role: newRole });
 
             if (res.data.success) {
                 toast.success("Role updated successfully");
@@ -86,10 +73,7 @@ function TeamManagement({ brandId, userRole }) {
         }
 
         try {
-            const token = localStorage.getItem("zynora_token");
-            const res = await axios.delete(`${import.meta.env.VITE_API_URL}/api/members/${brandId}/${memberId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.delete(`/api/members/${brandId}/${memberId}`);
 
             if (res.data.success) {
                 toast.success("Member removed successfully");
